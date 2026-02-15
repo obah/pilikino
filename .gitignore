@@ -1,0 +1,8 @@
+contracts/target
+contracts/.snfoundry_cache/
+contracts/snfoundry_trace/
+contracts/coverage/
+contracts/profile/
+contracts/.python-version
+
+circuits/target
