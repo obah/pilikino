@@ -6,3 +6,5 @@ contracts/profile/
 contracts/.python-version
 
 circuits/target
+
+node_modules
