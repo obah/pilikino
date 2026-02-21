@@ -8,3 +8,5 @@ contracts/.python-version
 circuits/target
 
 node_modules
+
+target

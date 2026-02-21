@@ -1,0 +1,23 @@
+[package]
+name = "pilikino-relayer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+async-trait = "0.1.89"
+axum = {version = "0.8.8", features = ["macros", "json"]}
+chrono = {version = "0.4.43", features = ["clock", "serde"]}
+dotenvy = "0.15.7"
+hex = "0.4.3"
+serde = {version = "1.0.228", features = ["derive"]}
+serde_json = "1.0.149"
+sha3 = "0.10.8"
+starknet = "0.17.0"
+thiserror = "2.0.18"
+tokio = {version = "1.49.0", features = ["macros", "rt-multi-thread", "signal", "time", "fs", "sync", "net"]}
+tokio-util = "0.7.18"
+tower-http = {version = "0.6.8", features = ["cors", "trace"]}
+tracing = "0.1.44"
+tracing-subscriber = {version = "0.3.22", features = ["env-filter", "fmt", "json"]}
+uuid = {version = "1.21.0", features = ["serde", "v4"]}
