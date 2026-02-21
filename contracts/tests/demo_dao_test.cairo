@@ -8,10 +8,6 @@ use contracts::demo::demo_dao::{IDemoDaoDispatcher, IDemoDaoDispatcherTrait};
 use contracts::demo::demo_defi::{IDemoDefiDispatcher, IDemoDefiDispatcherTrait};
 use contracts::demo::demo_token::{IDemoTokenDispatcher, IDemoTokenDispatcherTrait};
 
-const MIN_TOKENS_TO_PROPOSE: u256 = 100000000000000000000_u256;
-const MIN_TOKENS_TO_VOTE: u256 = 10000000000000000000_u256;
-const VOTING_PERIOD: u64 = 259200;
-const QUORUM_PERCENTAGE: u256 = 1_u256;
 const FAUCET_AMOUNT: u256 = 1000000000000000000000_u256;
 
 #[derive(Drop)]
@@ -54,10 +50,6 @@ fn setup() -> DaoSetup {
     let token_felt: felt252 = token_address.into();
     let mut dao_constructor = array![];
     dao_constructor.append(token_felt);
-    MIN_TOKENS_TO_PROPOSE.serialize(ref dao_constructor);
-    MIN_TOKENS_TO_VOTE.serialize(ref dao_constructor);
-    dao_constructor.append(VOTING_PERIOD.into());
-    QUORUM_PERCENTAGE.serialize(ref dao_constructor);
 
     let dao_address = deploy_contract("DemoDao", @dao_constructor);
     let dao = IDemoDaoDispatcher { contract_address: dao_address };

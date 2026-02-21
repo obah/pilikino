@@ -10,3 +10,5 @@ circuits/target
 node_modules
 
 target
+
+.env

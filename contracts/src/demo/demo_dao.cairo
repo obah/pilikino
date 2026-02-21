@@ -67,14 +67,14 @@ mod DemoDao {
         ProposalVotes,
     };
 
+    const MIN_TOKENS_TO_PROPOSE: u256 = 1000000000000000000_u256;
+    const MIN_TOKENS_TO_VOTE: u256 = 1000000000000000000_u256;
+    const VOTING_PERIOD: u64 = 2592000;
+    const QUORUM_PERCENTAGE: u256 = 1_u256;
+
     #[storage]
     struct Storage {
         governance_token: ContractAddress,
-        min_tokens_to_propose: u256,
-        min_tokens_to_vote: u256,
-        voting_period: u64,
-        quorum_percentage: u256,
-
         proposal_count: u64,
         proposals: Map<u64, ProposalCore>,
         proposal_votes: Map<u64, ProposalVotes>,
@@ -87,20 +87,10 @@ mod DemoDao {
     fn constructor(
         ref self: ContractState,
         governance_token: ContractAddress,
-        min_tokens_to_propose: u256,
-        min_tokens_to_vote: u256,
-        voting_period: u64,
-        quorum_percentage: u256,
     ) {
         assert(!governance_token.is_zero(), 'governance token zero');
-        assert(voting_period > 0, 'invalid voting period');
-        assert(quorum_percentage > 0 && quorum_percentage <= 10000, 'invalid quorum');
 
         self.governance_token.write(governance_token);
-        self.min_tokens_to_propose.write(min_tokens_to_propose);
-        self.min_tokens_to_vote.write(min_tokens_to_vote);
-        self.voting_period.write(voting_period);
-        self.quorum_percentage.write(quorum_percentage);
         self.reentrancy_lock.write(false);
     }
 
@@ -117,7 +107,7 @@ mod DemoDao {
 
             let proposal_id = self.proposal_count.read() + 1;
             let start_time = block_timestamp();
-            let end_time = start_time + self.voting_period.read();
+            let end_time = start_time + VOTING_PERIOD;
 
             self
                 .proposals
@@ -234,14 +224,14 @@ mod DemoDao {
 
     fn is_member_internal(self: @ContractState, account: ContractAddress) -> bool {
         let governance_token = IERC20Dispatcher { contract_address: self.governance_token.read() };
-        governance_token.balance_of(account) >= self.min_tokens_to_vote.read()
+        governance_token.balance_of(account) >= MIN_TOKENS_TO_VOTE
     }
 
     fn has_reached_quorum_internal(self: @ContractState, proposal_id: u64) -> bool {
         let votes = self.proposal_votes.read(proposal_id);
         let total_votes = votes.for_votes + votes.against_votes + votes.abstain_votes;
 
-        total_votes >= (self.quorum_percentage.read() * 10_u256)
+        total_votes >= (QUORUM_PERCENTAGE * 10_u256)
     }
 
     fn finalize_proposal(ref self: ContractState, proposal_id: u64) {
