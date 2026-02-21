@@ -1,4 +1,9 @@
-export { PilikinoSDK } from "./PilikinoSDK";
+export {
+  PilikinoSDK,
+  DEFAULT_PILIKINO_CIRCUIT,
+  DEFAULT_PILIKINO_POOL_ADDRESS,
+  DEFAULT_RELAYER_TRANSPORT_CONFIG,
+} from "./PilikinoSDK";
 export type {
   BuildProofParams,
   DepositResult,
@@ -7,6 +12,9 @@ export type {
   PilikinoSDKConfig,
   ProofArtifacts,
   ProofBundle,
+  RelayerTransportConfig,
+  RelayQueuedResponse,
+  RelayStatusResponse,
   WithdrawParams,
   WithdrawResult,
 } from "./types";

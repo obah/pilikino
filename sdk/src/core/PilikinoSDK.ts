@@ -12,6 +12,8 @@ import {
   selector,
 } from "starknet";
 
+import bundledCircuit from "./artifacts/circuits.json";
+import { DEFAULT_PILIKINO_VK_HEX } from "./artifacts/vkHex";
 import { MAX_120_BIT, MAX_248_BIT } from "./constants";
 import { ensureGaragaInit, merkleTree } from "./merkleTree";
 import type {
@@ -22,6 +24,9 @@ import type {
   PilikinoSDKConfig,
   ProofArtifacts,
   ProofBundle,
+  RelayerTransportConfig,
+  RelayQueuedResponse,
+  RelayStatusResponse,
   WithdrawParams,
   WithdrawResult,
 } from "./types";
@@ -41,6 +46,34 @@ import {
 } from "./utils";
 
 const ZERO_DATA_HASH = 0n;
+
+export const DEFAULT_PILIKINO_POOL_ADDRESS =
+  "0x0719784b7a7c45247a9405d7f6acf25d5506423ab31f4af22c4c9613ee40b94d";
+
+export const DEFAULT_PILIKINO_CIRCUIT = bundledCircuit;
+
+export const DEFAULT_RELAYER_TRANSPORT_CONFIG: Required<
+  Pick<RelayerTransportConfig, "url" | "endpoint">
+> = {
+  url: "https://pilikino-relayer.onrender.com",
+  endpoint: "/relay",
+};
+
+type RelayerFetchResponse = {
+  ok: boolean;
+  status: number;
+  json: () => Promise<unknown>;
+  text: () => Promise<string>;
+};
+
+type RelayerFetch = (
+  input: string,
+  init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  },
+) => Promise<RelayerFetchResponse>;
 
 function parseAddressAsField(address: string | bigint, label: string): bigint {
   return normalizeField(parseBigInt(address, label), label);
@@ -74,13 +107,19 @@ export class PilikinoSDK {
   readonly poolAddress: string;
 
   private account?: AccountInterface;
-  private proofArtifacts?: Partial<ProofArtifacts>;
+  private proofArtifacts: Partial<ProofArtifacts>;
+  private relayer?: RelayerTransportConfig | null;
 
   constructor(config: PilikinoSDKConfig) {
     this.provider = config.provider;
-    this.poolAddress = config.poolAddress;
+    this.poolAddress = config.poolAddress ?? DEFAULT_PILIKINO_POOL_ADDRESS;
     this.account = config.account;
-    this.proofArtifacts = config.proofArtifacts;
+    this.proofArtifacts = {
+      circuit: DEFAULT_PILIKINO_CIRCUIT,
+      verifyingKey: DEFAULT_PILIKINO_VK_HEX,
+      ...(config.proofArtifacts ?? {}),
+    };
+    this.relayer = config.relayer;
   }
 
   connectAccount(account: AccountInterface): this {
@@ -93,6 +132,11 @@ export class PilikinoSDK {
       ...(this.proofArtifacts ?? {}),
       ...artifacts,
     };
+    return this;
+  }
+
+  setRelayer(config: RelayerTransportConfig | null): this {
+    this.relayer = config;
     return this;
   }
 
@@ -258,14 +302,12 @@ export class PilikinoSDK {
       dataHash: toHex32(dataHash),
       proofCalldata,
       publicInputs: (proofData.publicInputs as unknown[]).map((x, i) =>
-        toBigIntValue(x, `publicInputs[]`).toString(),
+        toBigIntValue(x, `publicInputs[${i}]`).toString(),
       ),
     };
   }
 
   async withdraw(params: WithdrawParams, account?: AccountInterface): Promise<WithdrawResult> {
-    const writer = this.requireWriter(account);
-
     const amountToWithdraw = normalizeU256(
       parseBigInt(params.amountToWithdraw, "amountToWithdraw"),
       "amountToWithdraw",
@@ -287,6 +329,32 @@ export class PilikinoSDK {
       dataHash: withdrawDataHash,
       leaves: params.leaves,
     });
+
+    const relayer = this.resolveRelayerConfig();
+    if (relayer) {
+      const relayResult = await this.submitToRelayer(proof, {
+        operation: "withdraw",
+        token: params.token,
+        recipient: params.recipient,
+        amount: toHex32(amountToWithdraw),
+        nullifierHash: proof.nullifierHash,
+        rootHash: proof.rootHash,
+        calldataHash: proof.dataHash,
+        newCommitment: proof.newCommitment,
+        ...params.relayMetadata,
+      });
+
+      return {
+        txHash: `relay:${relayResult.request_id}`,
+        relayRequestId: relayResult.request_id,
+        relayQueueLength: relayResult.queue_len,
+        relayGasEstimate: relayResult.gas_estimate,
+        relayMinRequiredFeeWei: relayResult.min_required_fee_wei,
+        proof,
+      };
+    }
+
+    const writer = this.requireWriter(account);
 
     const nullifierHash = normalizeU256(parseBigInt(proof.nullifierHash, "nullifierHash"), "nullifierHash");
     const rootHash = normalizeU256(parseBigInt(proof.rootHash, "rootHash"), "rootHash");
@@ -323,8 +391,6 @@ export class PilikinoSDK {
     params: ExecuteActionParams,
     account?: AccountInterface,
   ): Promise<ExecuteActionResult> {
-    const writer = this.requireWriter(account);
-
     const amountToWithdraw = normalizeU256(
       parseBigInt(params.amountToWithdraw, "amountToWithdraw"),
       "amountToWithdraw",
@@ -349,6 +415,34 @@ export class PilikinoSDK {
       dataHash,
       leaves: params.leaves,
     });
+
+    const relayer = this.resolveRelayerConfig();
+    if (relayer) {
+      const relayResult = await this.submitToRelayer(proof, {
+        operation: "execute_action",
+        token: params.token,
+        amount: toHex32(amountToWithdraw),
+        target: params.target,
+        selector: selectorFelt.toString(),
+        actionCalldata: actionCalldata.map((x) => x.toString()),
+        actionId: toHex32(actionId),
+        nullifierHash: proof.nullifierHash,
+        rootHash: proof.rootHash,
+        newCommitment: proof.newCommitment,
+        ...params.relayMetadata,
+      });
+
+      return {
+        txHash: `relay:${relayResult.request_id}`,
+        relayRequestId: relayResult.request_id,
+        relayQueueLength: relayResult.queue_len,
+        relayGasEstimate: relayResult.gas_estimate,
+        relayMinRequiredFeeWei: relayResult.min_required_fee_wei,
+        proof,
+      };
+    }
+
+    const writer = this.requireWriter(account);
 
     const nullifierHash = normalizeU256(parseBigInt(proof.nullifierHash, "nullifierHash"), "nullifierHash");
     const rootHash = normalizeU256(parseBigInt(proof.rootHash, "rootHash"), "rootHash");
@@ -381,6 +475,34 @@ export class PilikinoSDK {
       txHash,
       proof,
     };
+  }
+
+  async getRelayStatus(requestId: string): Promise<RelayStatusResponse> {
+    const relayer = this.resolveRelayerConfig();
+    if (!relayer) {
+      throw new Error("Relayer is disabled for this SDK instance");
+    }
+
+    const fetchFn = this.getRelayerFetch();
+    const endpoint = this.resolveRelayerEndpoint(`/${encodeURIComponent(requestId)}`);
+
+    const response = await fetchFn(endpoint, {
+      method: "GET",
+      headers: {
+        ...(relayer.headers ?? {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch relay status (${response.status})`);
+    }
+
+    const body = (await response.json()) as RelayStatusResponse;
+    if (!body?.request_id || !body?.status) {
+      throw new Error("Invalid relay status response payload");
+    }
+
+    return body;
   }
 
   async getRoot(index: BigNumberish): Promise<bigint> {
@@ -427,6 +549,113 @@ export class PilikinoSDK {
     }
 
     return response[0];
+  }
+
+  private resolveRelayerConfig(): RelayerTransportConfig | null {
+    if (this.relayer === null) {
+      return null;
+    }
+
+    const configured = this.relayer ?? {};
+
+    return {
+      url: configured.url ?? DEFAULT_RELAYER_TRANSPORT_CONFIG.url,
+      endpoint: configured.endpoint ?? DEFAULT_RELAYER_TRANSPORT_CONFIG.endpoint,
+      headers: configured.headers,
+      metadata: configured.metadata,
+    };
+  }
+
+  private resolveRelayerEndpoint(suffix = ""): string {
+    const relayer = this.resolveRelayerConfig();
+    if (!relayer) {
+      throw new Error("Relayer is disabled for this SDK instance");
+    }
+
+    const base = (relayer.url ?? DEFAULT_RELAYER_TRANSPORT_CONFIG.url).endsWith("/")
+      ? (relayer.url ?? DEFAULT_RELAYER_TRANSPORT_CONFIG.url).slice(0, -1)
+      : (relayer.url ?? DEFAULT_RELAYER_TRANSPORT_CONFIG.url);
+
+    const endpoint = relayer.endpoint ?? DEFAULT_RELAYER_TRANSPORT_CONFIG.endpoint;
+    const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
+    return `${base}${normalizedEndpoint}${suffix}`;
+  }
+
+  private getRelayerFetch(): RelayerFetch {
+    const fetchFn = (globalThis as unknown as { fetch?: RelayerFetch }).fetch;
+    if (typeof fetchFn !== "function") {
+      throw new Error(
+        "Global fetch is unavailable in this runtime. Provide a fetch-capable environment for relayer transport.",
+      );
+    }
+
+    return fetchFn;
+  }
+
+  private async submitToRelayer(
+    proof: ProofBundle,
+    operationMetadata: Record<string, unknown>,
+  ): Promise<RelayQueuedResponse> {
+    const relayer = this.resolveRelayerConfig();
+    if (!relayer) {
+      throw new Error("Relayer is disabled for this SDK instance");
+    }
+
+    const fetchFn = this.getRelayerFetch();
+    const endpoint = this.resolveRelayerEndpoint();
+
+    const metadata = {
+      ...(relayer.metadata ?? {}),
+      ...operationMetadata,
+    };
+
+    const payload: {
+      proof_calldata: string[];
+      public_inputs: string[];
+      metadata?: Record<string, unknown>;
+    } = {
+      proof_calldata: proof.proofCalldata.map((value) => value.toString()),
+      public_inputs: proof.publicInputs,
+    };
+
+    if (Object.keys(metadata).length > 0) {
+      payload.metadata = metadata;
+    }
+
+    const response = await fetchFn(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(relayer.headers ?? {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Relayer request failed with status ${response.status}`;
+
+      try {
+        const body = (await response.json()) as { error?: string };
+        if (body?.error) {
+          errorMessage = `Relayer request failed: ${body.error}`;
+        }
+      } catch {
+        const bodyText = await response.text();
+        if (bodyText) {
+          errorMessage = `Relayer request failed: ${bodyText}`;
+        }
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const body = (await response.json()) as RelayQueuedResponse;
+    if (!body?.request_id) {
+      throw new Error("Relayer response is missing request_id");
+    }
+
+    return body;
   }
 
   private requireWriter(account?: AccountInterface): AccountInterface {

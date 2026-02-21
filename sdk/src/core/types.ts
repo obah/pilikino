@@ -5,11 +5,19 @@ export interface ProofArtifacts {
   verifyingKey: Uint8Array | string;
 }
 
+export interface RelayerTransportConfig {
+  url?: string;
+  endpoint?: string;
+  headers?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+}
+
 export interface PilikinoSDKConfig {
   provider: ProviderInterface;
-  poolAddress: string;
+  poolAddress?: string;
   account?: AccountInterface;
   proofArtifacts?: Partial<ProofArtifacts>;
+  relayer?: RelayerTransportConfig | null;
 }
 
 export interface DepositResult {
@@ -52,6 +60,7 @@ export interface WithdrawParams {
   nullifier: BigNumberish;
   secret: BigNumberish;
   leaves: BigNumberish[];
+  relayMetadata?: Record<string, unknown>;
 }
 
 export interface ExecuteActionParams {
@@ -65,16 +74,38 @@ export interface ExecuteActionParams {
   nullifier: BigNumberish;
   secret: BigNumberish;
   leaves: BigNumberish[];
+  relayMetadata?: Record<string, unknown>;
+}
+
+export interface RelayQueuedResponse {
+  request_id: string;
+  queue_len: number;
+  gas_estimate: string;
+  min_required_fee_wei: string;
+}
+
+export interface RelayStatusResponse {
+  request_id: string;
+  status: "queued" | "submitted";
+  tx_hash?: string | null;
 }
 
 export interface WithdrawResult {
   txHash: string;
   insertedLeafIndex?: bigint;
+  relayRequestId?: string;
+  relayQueueLength?: number;
+  relayGasEstimate?: string;
+  relayMinRequiredFeeWei?: string;
   proof: ProofBundle;
 }
 
 export interface ExecuteActionResult {
   txHash: string;
   success?: boolean;
+  relayRequestId?: string;
+  relayQueueLength?: number;
+  relayGasEstimate?: string;
+  relayMinRequiredFeeWei?: string;
   proof: ProofBundle;
 }
