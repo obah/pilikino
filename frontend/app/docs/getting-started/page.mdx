@@ -1,0 +1,97 @@
+# Getting Started
+
+This guide covers the default Pilikino path where pool address, proof artifacts, and relayer URL are already wired in the SDK.
+
+## Install
+
+```bash
+npm install pilikino
+```
+
+## 1) Initialize SDK
+
+```ts
+import { RpcProvider, Account } from "starknet";
+import { PilikinoSDK } from "pilikino";
+
+const provider = new RpcProvider({ nodeUrl: process.env.NEXT_PUBLIC_STARKNET_RPC! });
+const account = new Account(
+  provider,
+  process.env.NEXT_PUBLIC_ACCOUNT_ADDRESS!,
+  process.env.NEXT_PUBLIC_ACCOUNT_PRIVATE_KEY!,
+);
+
+const sdk = new PilikinoSDK({
+  provider,
+  account,
+  // poolAddress optional (default is hardcoded)
+  // proofArtifacts optional (defaults are bundled)
+  // relayer optional (defaults to https://pilikino-relayer.onrender.com)
+});
+```
+
+## 2) Deposit (Create Note)
+
+```ts
+const tokenAddress = "0x...";
+
+const depositResult = await sdk.deposit(tokenAddress, 100n);
+
+// Persist these securely for spend operations:
+// depositResult.secret
+// depositResult.nullifier
+// depositResult.commitment
+```
+
+## 3) Build/Execute a Private Spend
+
+Pilikino spend flows require you to provide the current Merkle leaves.
+
+```ts
+const leaves = [depositResult.commitment]; // replace with current pool leaves from your indexer/service
+
+const result = await sdk.withdraw({
+  token: tokenAddress,
+  recipient: "0xRecipient",
+  amountToWithdraw: 40n,
+  amountInPool: 100n,
+  nullifier: depositResult.nullifier,
+  secret: depositResult.secret,
+  leaves,
+});
+
+// result.txHash is relay:<request_id> in relayer mode
+```
+
+## 4) Track Relay Status
+
+```ts
+const requestId = result.txHash.replace("relay:", "");
+const status = await sdk.getRelayStatus(requestId);
+console.log(status.status); // queued | submitted
+```
+
+## Optional Overrides
+
+### Disable relayer and submit directly on-chain
+
+```ts
+const sdk = new PilikinoSDK({
+  provider,
+  account,
+  relayer: null,
+});
+```
+
+### Use custom relayer endpoint
+
+```ts
+const sdk = new PilikinoSDK({
+  provider,
+  account,
+  relayer: {
+    url: "https://your-relayer.example.com",
+    endpoint: "/relay",
+  },
+});
+```

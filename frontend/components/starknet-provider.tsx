@@ -4,7 +4,7 @@ import React from "react";
 import { sepolia, mainnet } from "@starknet-react/chains";
 import {
   StarknetConfig,
-  publicProvider,
+  jsonRpcProvider,
   ready,
   braavos,
   useInjectedConnectors,
@@ -24,7 +24,14 @@ export function StarknetProvider({ children }: { children: React.ReactNode }) {
   return (
     <StarknetConfig
       chains={[mainnet, sepolia]}
-      provider={publicProvider()}
+      provider={jsonRpcProvider({
+        rpc: (chain) => {
+          const rpcs = chain.rpcUrls.public.http;
+          const nodeUrl = rpcs[0];
+          if (!nodeUrl) return null;
+          return { nodeUrl, specVersion: "0.10.0" };
+        },
+      })}
       connectors={connectors}
       explorer={voyager}
     >

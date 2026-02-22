@@ -1,4 +1,14 @@
 {
+  "name": "pilikino",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./hooks": "./src/hooks/index.ts"
+  },
   "dependencies": {
     "@aztec/bb.js": "3.0.0-nightly.20251104",
     "@aztec/foundation": "^3.0.0-nightly.20251104",

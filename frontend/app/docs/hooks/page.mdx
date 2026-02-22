@@ -1,0 +1,98 @@
+# React Hooks
+
+Import from:
+
+```ts
+import {
+  usePilikino,
+  useDeposit,
+  useWithdraw,
+  useExecuteAction,
+  useRelayStatus,
+  useLocalNotes,
+} from "pilikino/hooks";
+```
+
+## Base Config
+
+```ts
+const base = {
+  provider,
+  account,
+  // optional: poolAddress, proofArtifacts, relayer
+};
+```
+
+## `usePilikino`
+
+```ts
+const { sdk, isReady } = usePilikino(base);
+```
+
+## `useDeposit`
+
+```ts
+const { deposit, note, isPending, error } = useDeposit(base);
+
+await deposit({
+  token: tokenAddress,
+  amountInPool: 100n,
+});
+```
+
+## `useWithdraw`
+
+```ts
+const { withdraw, nextNote } = useWithdraw(base);
+
+await withdraw({
+  token: tokenAddress,
+  recipient: recipientAddress,
+  amountToWithdraw: 40n,
+  amountInPool: 100n,
+  secret,
+  nullifier,
+  leaves,
+});
+```
+
+## `useExecuteAction`
+
+```ts
+const { executeAction, nextNote } = useExecuteAction(base);
+
+await executeAction({
+  token: tokenAddress,
+  amountToWithdraw: 40n,
+  target: targetAddress,
+  selector: "swap",
+  actionCalldata: ["1", "2"],
+  actionId: "0x...",
+  amountInPool: 100n,
+  secret,
+  nullifier,
+  leaves,
+});
+```
+
+## `useRelayStatus`
+
+```ts
+const { data, refetch } = useRelayStatus({
+  ...base,
+  requestId,
+  enabled: true,
+  refetchIntervalMs: 3000,
+});
+```
+
+## `useLocalNotes`
+
+```ts
+const { notes, addNote, upsertNote, removeNote } = useLocalNotes();
+```
+
+## Notes
+
+- `useWithdraw` and `useExecuteAction` require `leaves` input.
+- Set `relayer: null` in base config for direct on-chain submissions.

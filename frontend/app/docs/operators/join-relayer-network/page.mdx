@@ -1,0 +1,88 @@
+# Join the Relayer Network
+
+This guide explains how to run a Pilikino relayer node and join the network of relay operators.
+
+## Why Run a Relayer
+
+- Earn relay fees for private spends you submit.
+- Improve censorship resistance and reliability.
+- Provide low-latency relay routing for apps and users.
+
+## Prerequisites
+
+- Rust stable toolchain (`rustup`, `cargo`)
+- Starknet Sepolia RPC endpoint
+- Dedicated Starknet account contract + private key
+- Deployed Pilikino pool address
+
+## Environment
+
+Create `relayer/.env`:
+
+```bash
+RELAYER_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/<KEY>
+RELAYER_PRIVATE_KEY=0x...
+RELAYER_ACCOUNT_ADDRESS=0x...
+PILIKINO_POOL_ADDRESS=0x0719784b7a7c45247a9405d7f6acf25d5506423ab31f4af22c4c9613ee40b94d
+RELAYER_BIND_ADDR=0.0.0.0:8787
+# Optional only if your proof public_inputs include these extra words:
+# RELAYER_PUBLIC_INPUT_RELAYER_INDEX=
+# RELAYER_PUBLIC_INPUT_FEE_INDEX=
+RELAYER_BATCH_SIZE=3
+RELAYER_BATCH_MAX_WAIT_SECS=15
+RELAYER_RETRY_MAX_ATTEMPTS=5
+RELAYER_RETRY_BASE_DELAY_MS=500
+RELAYER_MEMPOOL_PATH=./data/mempool.json
+```
+
+## Build and Run
+
+```bash
+cd relayer
+cargo build --release
+./target/release/pilikino-relayer
+```
+
+## API Surface
+
+- `POST /relay`
+- `GET /relay/{request_id}`
+- `GET /health`
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8787/health
+```
+
+## Deploy on Render
+
+1. Create a new **Web Service**.
+2. Set Root Directory to `relayer`.
+3. Build Command: `cargo build --release`.
+4. Start Command: `RELAYER_BIND_ADDR=0.0.0.0:$PORT ./target/release/pilikino-relayer`.
+5. Add env vars in Render secrets.
+6. Fund the relayer account with STRK/ETH gas as required by your network setup.
+
+## Connect Apps to Your Node
+
+SDK already defaults to the public relayer. To route to your relayer endpoint:
+
+```ts
+const sdk = new PilikinoSDK({
+  provider,
+  account,
+  relayer: {
+    url: "https://your-relayer.example.com",
+    endpoint: "/relay",
+  },
+});
+```
+
+## Security Checklist
+
+- Use a dedicated relayer key and account.
+- Keep private key only in secret manager.
+- Monitor `/health` and submission errors.
+- Rotate key immediately if leaked.
+- Keep RPC credentials scoped and rotated.

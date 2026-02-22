@@ -1,0 +1,95 @@
+# Core SDK
+
+`PilikinoSDK` is the low-level API for deposits, proof generation, withdrawals, action execution, and relayer lifecycle.
+
+## Constructor
+
+```ts
+new PilikinoSDK({ provider, account? });
+```
+
+### Default wiring
+
+- Default pool address: `0x0719784b7a7c45247a9405d7f6acf25d5506423ab31f4af22c4c9613ee40b94d`
+- Default proving circuit: bundled in SDK
+- Default verifying key: bundled in SDK
+- Default relayer: `https://pilikino-relayer.onrender.com/relay`
+
+## Main Methods
+
+### `generateCommitment(amountInPool)`
+
+```ts
+const note = await sdk.generateCommitment(100n);
+```
+
+Returns secret/nullifier/commitment bundle.
+
+### `deposit(token, amountInPool, account?)`
+
+```ts
+const result = await sdk.deposit(tokenAddress, 100n);
+```
+
+### `buildProof(params)`
+
+```ts
+const proof = await sdk.buildProof({
+  nullifier,
+  secret,
+  amountInPool: 100n,
+  amountToWithdraw: 40n,
+  recipientOrTarget: "0x123",
+  dataHash: 0n,
+  leaves,
+});
+```
+
+### `withdraw(params, account?)`
+
+```ts
+const result = await sdk.withdraw({
+  token,
+  recipient,
+  amountToWithdraw: 40n,
+  amountInPool: 100n,
+  nullifier,
+  secret,
+  leaves,
+});
+```
+
+### `executeAction(params, account?)`
+
+```ts
+const result = await sdk.executeAction({
+  token,
+  amountToWithdraw: 40n,
+  target,
+  selector: "swap",
+  actionCalldata: ["123", "456"],
+  actionId: "0x...",
+  amountInPool: 100n,
+  nullifier,
+  secret,
+  leaves,
+});
+```
+
+### `getRelayStatus(requestId)`
+
+```ts
+const status = await sdk.getRelayStatus(requestId);
+```
+
+### View methods
+
+- `getRoot(index)`
+- `isKnownRoot(root)`
+- `isTokenSupported(token)`
+- `getVerifierAddress()`
+
+## Result Patterns
+
+- Relayer mode returns `txHash` as `relay:<request_id>`.
+- Direct mode (`relayer: null`) returns on-chain tx hash.

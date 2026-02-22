@@ -27,7 +27,7 @@ So `poolAddress` and `proofArtifacts` are optional unless you want to override t
 
 ```ts
 import { RpcProvider, Account } from "starknet";
-import { PilikinoSDK } from "./src";
+import { PilikinoSDK } from "pilikino";
 
 const provider = new RpcProvider({ nodeUrl: process.env.RPC_URL! });
 const account = new Account(provider, process.env.ACCOUNT_ADDRESS!, process.env.PRIVATE_KEY!);
@@ -57,7 +57,7 @@ const withdraw = await sdk.withdraw({
 ## Hooks
 
 ```ts
-import { useDeposit, useWithdraw, useExecuteAction, useRelayStatus } from "./src";
+import { useDeposit, useWithdraw, useExecuteAction, useRelayStatus } from "pilikino/hooks";
 ```
 
 - `useDeposit`
