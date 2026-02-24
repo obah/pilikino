@@ -9,7 +9,11 @@ import type {
   PrivateTransactionEvent,
   PrivateTransactionReporter,
 } from "@/components/demo/transaction-log-types";
-import { STARKNET_EXPLORER_BASE } from "@/lib/demo-config";
+import {
+  DEMO_RELAYER_ENDPOINT,
+  DEMO_RELAYER_URL,
+  STARKNET_EXPLORER_BASE,
+} from "@/lib/demo-config";
 import { cn } from "@/lib/utils";
 import {
   ExternalLink,
@@ -22,7 +26,6 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useProvider } from "@starknet-react/core";
-import { DEFAULT_RELAYER_TRANSPORT_CONFIG } from "pilikino/core";
 
 type DemoTab = "dao" | "defi";
 
@@ -37,20 +40,12 @@ interface PrivateTransactionLog extends PrivateTransactionEvent {
 }
 
 const RELAY_STATUS_POLL_MS = 2_000;
-const RELAYER_STATUS_BASE_URL =
-  process.env.NEXT_PUBLIC_PILIKINO_RELAYER_URL ??
-  process.env.NEXT_PUBLIC_PRIVACY_PROTOCOL_RELAYER_URL ??
-  DEFAULT_RELAYER_TRANSPORT_CONFIG.url;
-const RELAYER_STATUS_ENDPOINT =
-  process.env.NEXT_PUBLIC_PILIKINO_RELAYER_ENDPOINT ??
-  process.env.NEXT_PUBLIC_PRIVACY_PROTOCOL_RELAYER_ENDPOINT ??
-  DEFAULT_RELAYER_TRANSPORT_CONFIG.endpoint;
 
 function buildRelayStatusUrl(requestId: string): string {
-  const endpoint = RELAYER_STATUS_ENDPOINT ?? "/relay";
-  const base = RELAYER_STATUS_BASE_URL.endsWith("/")
-    ? RELAYER_STATUS_BASE_URL.slice(0, -1)
-    : RELAYER_STATUS_BASE_URL;
+  const endpoint = DEMO_RELAYER_ENDPOINT ?? "/relay";
+  const base = DEMO_RELAYER_URL.endsWith("/")
+    ? DEMO_RELAYER_URL.slice(0, -1)
+    : DEMO_RELAYER_URL;
   const normalizedEndpoint = endpoint.startsWith("/")
     ? endpoint
     : `/${endpoint}`;
@@ -210,7 +205,8 @@ function useStarknetTransaction(txHash?: string) {
 
     const fetchReceipt = async () => {
       try {
-        const nextReceipt = await provider.getTransactionReceipt(normalizedTxHash);
+        const nextReceipt =
+          await provider.getTransactionReceipt(normalizedTxHash);
         if (!cancelled) {
           setReceipt(nextReceipt);
         }
@@ -239,7 +235,10 @@ function useStarknetTransaction(txHash?: string) {
 
 function getReceiptStatus(receipt: any): "pending" | "success" | "reverted" {
   const rawStatus =
-    receipt?.execution_status ?? receipt?.executionStatus ?? receipt?.status ?? "";
+    receipt?.execution_status ??
+    receipt?.executionStatus ??
+    receipt?.status ??
+    "";
   const normalized = String(rawStatus).toLowerCase();
 
   if (normalized.includes("revert")) {
@@ -315,7 +314,7 @@ function NormalTransactionCard({ log }: { log: NormalTransactionLog }) {
         rel="noreferrer"
         className="mt-3 inline-flex items-center gap-1 text-xs text-emerald-800/90 underline-offset-4 hover:text-emerald-900 hover:underline dark:text-emerald-200/80 dark:hover:text-emerald-100"
       >
-        View on Starkscan Sepolia
+        View on Voyager
         <ExternalLink size={12} />
       </Link>
     </article>
@@ -324,7 +323,8 @@ function NormalTransactionCard({ log }: { log: NormalTransactionLog }) {
 
 function PrivateTransactionCard({ log }: { log: PrivateTransactionLog }) {
   const onchainHash =
-    (log.hash.startsWith("0x") ? log.hash : log.metadata?.relayTxHash) ?? undefined;
+    (log.hash.startsWith("0x") ? log.hash : log.metadata?.relayTxHash) ??
+    undefined;
   const { transaction, receipt } = useStarknetTransaction(onchainHash);
 
   const txSenderRaw =
@@ -344,8 +344,11 @@ function PrivateTransactionCard({ log }: { log: PrivateTransactionLog }) {
   const relayQueueLength = log.metadata?.relayQueueLength;
   const relayGasEstimate = log.metadata?.relayGasEstimate;
   const relayMinRequiredFeeWei = log.metadata?.relayMinRequiredFeeWei;
-  const isRelaySubmitted = Boolean(relayTxHash);
-  const isRelayConfirmed = chainStatus === "success" || chainStatus === "reverted";
+  const relayError = log.metadata?.relayError;
+  const isRelayFailed = log.metadata?.status === "failed";
+  const isRelaySubmitted = Boolean(relayTxHash) && !isRelayFailed;
+  const isRelayConfirmed =
+    chainStatus === "success" || chainStatus === "reverted";
   const isRelayReverted = chainStatus === "reverted";
 
   return (
@@ -396,37 +399,39 @@ function PrivateTransactionCard({ log }: { log: PrivateTransactionLog }) {
             Relay Receipt Lifecycle
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
-            <LifecycleStep
-              title="Queued"
-              tone="done"
-              detail={relayRequestId}
-            />
+            <LifecycleStep title="Queued" tone="done" detail={relayRequestId} />
             <LifecycleStep
               title="Submitted"
-              tone={isRelaySubmitted ? "done" : "active"}
+              tone={isRelayFailed ? "error" : isRelaySubmitted ? "done" : "active"}
               detail={
-                isRelaySubmitted && relayTxHash
-                  ? truncate(relayTxHash, 14, 10)
-                  : relaySubmittedAt
-                    ? new Date(relaySubmittedAt).toLocaleTimeString()
-                    : "waiting for batch submit"
+                isRelayFailed
+                  ? truncatePrivateParameters(relayError ?? "submission failed")
+                  : isRelaySubmitted && relayTxHash
+                    ? truncate(relayTxHash, 14, 10)
+                    : relaySubmittedAt
+                      ? new Date(relaySubmittedAt).toLocaleTimeString()
+                      : "waiting for batch submit"
               }
             />
             <LifecycleStep
               title="Confirmed"
               tone={
-                isRelayConfirmed
-                  ? isRelayReverted
-                    ? "error"
-                    : "done"
-                  : "pending"
+                isRelayFailed
+                  ? "error"
+                  : isRelayConfirmed
+                    ? isRelayReverted
+                      ? "error"
+                      : "done"
+                    : "pending"
               }
               detail={
-                isRelayConfirmed
-                  ? isRelayReverted
-                    ? "reverted on-chain"
-                    : "confirmed on-chain"
-                  : "waiting for confirmation"
+                isRelayFailed
+                  ? "submission failed"
+                  : isRelayConfirmed
+                    ? isRelayReverted
+                      ? "reverted on-chain"
+                      : "confirmed on-chain"
+                    : "waiting for confirmation"
               }
             />
           </div>
@@ -442,7 +447,7 @@ function PrivateTransactionCard({ log }: { log: PrivateTransactionLog }) {
           rel="noreferrer"
           className="mt-3 inline-flex items-center gap-1 text-xs text-sky-800/90 underline-offset-4 hover:text-sky-900 hover:underline dark:text-sky-200/80 dark:hover:text-sky-100"
         >
-          View on Starkscan Sepolia
+          View on Voyager
           <ExternalLink size={12} />
         </Link>
       ) : (
@@ -506,7 +511,8 @@ export default function DemoPage() {
       (log) =>
         log.hash.startsWith("relay:") &&
         log.metadata?.relayRequestId &&
-        log.metadata?.status !== "success",
+        log.metadata?.status !== "success" &&
+        log.metadata?.status !== "failed",
     );
 
     if (pendingRelayLogs.length === 0) {
@@ -516,7 +522,10 @@ export default function DemoPage() {
     let cancelled = false;
 
     const pollRelayStatuses = async () => {
-      const updates: Array<{ id: string; txHash: string }> = [];
+      const updates: Array<
+        | { id: string; type: "submitted"; txHash: string }
+        | { id: string; type: "failed"; error: string }
+      > = [];
 
       for (const log of pendingRelayLogs) {
         const requestId = log.metadata?.relayRequestId;
@@ -527,18 +536,37 @@ export default function DemoPage() {
         try {
           const response = await fetch(buildRelayStatusUrl(requestId));
           if (!response.ok) {
+            if (response.status === 404) {
+              updates.push({
+                id: log.id,
+                type: "failed",
+                error:
+                  "relay request not found on configured relayer; verify relayer URL/endpoint",
+              });
+            }
             continue;
           }
           const payload = (await response.json()) as {
             status?: string;
             tx_hash?: string | null;
+            error?: string | null;
           };
           if (
             payload.status === "submitted" &&
             payload.tx_hash &&
             payload.tx_hash.startsWith("0x")
           ) {
-            updates.push({ id: log.id, txHash: payload.tx_hash });
+            updates.push({
+              id: log.id,
+              type: "submitted",
+              txHash: payload.tx_hash,
+            });
+          } else if (payload.status === "failed") {
+            updates.push({
+              id: log.id,
+              type: "failed",
+              error: payload.error ?? "relayer submission failed",
+            });
           }
         } catch {
           continue;
@@ -554,6 +582,17 @@ export default function DemoPage() {
           const update = updates.find((candidate) => candidate.id === log.id);
           if (!update) {
             return log;
+          }
+
+          if (update.type === "failed") {
+            return {
+              ...log,
+              metadata: {
+                ...log.metadata,
+                status: "failed",
+                relayError: update.error,
+              },
+            };
           }
 
           return {
@@ -691,7 +730,7 @@ export default function DemoPage() {
               rel="noreferrer"
               className="text-primary mt-1 inline-flex items-center gap-1 text-xs underline underline-offset-4"
             >
-              Open Starkscan Sepolia
+              Open Voyager
               <ExternalLink size={12} />
             </Link>
 

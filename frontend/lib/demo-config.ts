@@ -1,3 +1,5 @@
+import { DEFAULT_RELAYER_TRANSPORT_CONFIG } from "pilikino/core";
+
 export const DEMO_CONTRACTS = {
   PilikinoPool:
     process.env.NEXT_PUBLIC_PILIKINO_POOL_ADDRESS ??
@@ -19,6 +21,21 @@ export const DEMO_CONTRACTS = {
 export const STARKNET_EXPLORER_BASE =
   process.env.NEXT_PUBLIC_STARKNET_EXPLORER_URL ??
   "https://sepolia.voyager.online";
+
+export const DEMO_RELAYER_URL =
+  process.env.NEXT_PUBLIC_PILIKINO_RELAYER_URL ??
+  process.env.NEXT_PUBLIC_PRIVACY_PROTOCOL_RELAYER_URL ??
+  DEFAULT_RELAYER_TRANSPORT_CONFIG.url;
+
+export const DEMO_RELAYER_ENDPOINT =
+  process.env.NEXT_PUBLIC_PILIKINO_RELAYER_ENDPOINT ??
+  process.env.NEXT_PUBLIC_PRIVACY_PROTOCOL_RELAYER_ENDPOINT ??
+  DEFAULT_RELAYER_TRANSPORT_CONFIG.endpoint;
+
+export const DEMO_RELAYER_CONFIG = {
+  url: DEMO_RELAYER_URL,
+  endpoint: DEMO_RELAYER_ENDPOINT,
+};
 
 export const DECIMALS = BigInt(18);
 export const ONE_TOKEN = BigInt(10) ** DECIMALS;

@@ -111,7 +111,10 @@ impl ChainService {
                         continue;
                     }
 
-                    return Err(anyhow!(error).context("failed to send relay transaction"));
+                    return Err(anyhow!(error).context(format!(
+                        "failed to send relay transaction (attempt {attempt}/{})",
+                        self.config.retry_max_attempts
+                    )));
                 }
             }
         }

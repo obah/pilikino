@@ -85,7 +85,7 @@ pub async fn run_batch_worker(state: AppState, shutdown: CancellationToken) {
                     );
                 }
                 Err(error) => {
-                    let error_text = error.to_string();
+                    let error_text = format!("{error:#}");
 
                     let queue_len = {
                         let mut mempool = state.mempool.write().await;

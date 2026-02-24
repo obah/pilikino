@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   DEMO_CONTRACTS,
+  DEMO_RELAYER_CONFIG,
   PRIVATE_DEMO_AMOUNT,
 } from "@/lib/demo-config";
 import { fetchPoolCommitmentLeavesWithRetry } from "@/lib/pool-leaves";
@@ -166,6 +167,7 @@ function ProposalCard({
     poolAddress: DEMO_CONTRACTS.PilikinoPool,
     provider,
     account,
+    relayer: DEMO_RELAYER_CONFIG,
   });
 
   const refreshProposalData = useCallback(async () => {

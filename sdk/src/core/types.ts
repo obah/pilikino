@@ -86,8 +86,9 @@ export interface RelayQueuedResponse {
 
 export interface RelayStatusResponse {
   request_id: string;
-  status: "queued" | "submitted";
+  status: "queued" | "submitted" | "failed";
   tx_hash?: string | null;
+  error?: string | null;
 }
 
 export interface WithdrawResult {

@@ -20,7 +20,7 @@ export interface PrivateTransactionMetadata {
   method?: string;
   methodId?: string;
   parameters?: string;
-  status?: "pending" | "success" | "reverted";
+  status?: "pending" | "success" | "reverted" | "failed";
   to?: string | null;
   proxyAddress?: string;
   noteCommitment?: string;
@@ -31,6 +31,7 @@ export interface PrivateTransactionMetadata {
   relayMinRequiredFeeWei?: string;
   relaySubmittedAt?: number;
   relayConfirmedAt?: number;
+  relayError?: string;
 }
 
 export interface PrivateTransactionEvent {

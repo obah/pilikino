@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowDown, Info, Loader2 } from "lucide-react";
 import Faucet from "./Faucet";
-import { DEMO_CONTRACTS } from "@/lib/demo-config";
+import { DEMO_CONTRACTS, DEMO_RELAYER_CONFIG } from "@/lib/demo-config";
 import { fetchPoolCommitmentLeavesWithRetry } from "@/lib/pool-leaves";
 import { formatTokenAmount, parseAmountInput, toU256 } from "@/lib/starknet";
 import { toast } from "sonner";
@@ -69,6 +69,7 @@ export default function DefiDemoContent({
     poolAddress: DEMO_CONTRACTS.PilikinoPool,
     provider,
     account,
+    relayer: DEMO_RELAYER_CONFIG,
   });
 
   const parsedAmount = useMemo(() => parseAmountInput(amountIn), [amountIn]);
