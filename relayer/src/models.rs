@@ -199,6 +199,7 @@ pub struct HealthResponse {
 pub enum RelayRequestStatus {
     Queued,
     Submitted { tx_hash: Felt },
+    Failed { error: String },
 }
 
 impl RelayRequestStatus {
@@ -206,6 +207,7 @@ impl RelayRequestStatus {
         match self {
             RelayRequestStatus::Queued => "queued",
             RelayRequestStatus::Submitted { .. } => "submitted",
+            RelayRequestStatus::Failed { .. } => "failed",
         }
     }
 }
@@ -215,6 +217,7 @@ pub struct RelayStatusResponse {
     pub request_id: Uuid,
     pub status: &'static str,
     pub tx_hash: Option<String>,
+    pub error: Option<String>,
 }
 
 impl RelayRequest {

@@ -122,15 +122,17 @@ pub async fn relay_status(
         )));
     };
 
-    let tx_hash = match status {
-        RelayRequestStatus::Queued => None,
-        RelayRequestStatus::Submitted { tx_hash } => Some(format!("{:#x}", tx_hash)),
+    let (tx_hash, error) = match status {
+        RelayRequestStatus::Queued => (None, None),
+        RelayRequestStatus::Submitted { tx_hash } => (Some(format!("{:#x}", tx_hash)), None),
+        RelayRequestStatus::Failed { error } => (None, Some(error.clone())),
     };
 
     Ok(Json(RelayStatusResponse {
         request_id,
         status: status.as_str(),
         tx_hash,
+        error,
     }))
 }
 

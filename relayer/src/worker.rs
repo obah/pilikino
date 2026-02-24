@@ -85,10 +85,37 @@ pub async fn run_batch_worker(state: AppState, shutdown: CancellationToken) {
                     );
                 }
                 Err(error) => {
+                    let error_text = error.to_string();
+
+                    let queue_len = {
+                        let mut mempool = state.mempool.write().await;
+                        if let Err(ack_error) = mempool.acknowledge_batch(1) {
+                            error!(
+                                request_id = %item.id,
+                                error = %ack_error,
+                                "failed to drop failed relay item from queue"
+                            );
+                            hit_failure = true;
+                            break;
+                        }
+                        mempool.len()
+                    };
+
+                    {
+                        let mut statuses = state.relay_statuses.write().await;
+                        statuses.insert(
+                            item.id,
+                            RelayRequestStatus::Failed {
+                                error: error_text.clone(),
+                            },
+                        );
+                    }
+
                     warn!(
                         request_id = %item.id,
-                        error = %error,
-                        "relay request submission failed; item left in queue"
+                        queue_len,
+                        error = %error_text,
+                        "relay request submission failed; dropped from queue"
                     );
                     hit_failure = true;
                     break;
