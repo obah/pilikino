@@ -284,15 +284,30 @@ export class PilikinoSDK {
     const proofData = await honk.generateProof(witness, { keccakZK: true });
 
     const publicInputsBytes = flattenFieldsAsArray(proofData.publicInputs as Array<string | bigint>);
-    const proofCalldata = getZKHonkCallData(
+    const encodedProofCalldata = getZKHonkCallData(
       proofData.proof,
       publicInputsBytes,
       artifacts.verifyingKey,
     );
 
+    // Garaga JS returns [len, ...proof_felts]. The verifier entrypoint expects only proof felts.
+    const proofCalldata =
+      encodedProofCalldata.length > 0
+      && encodedProofCalldata[0] === BigInt(encodedProofCalldata.length - 1)
+        ? encodedProofCalldata.slice(1)
+        : encodedProofCalldata;
+
+    const rootHash = toHex32(BigInt(merkleProof.root));
+    const isKnownRoot = await this.isKnownRoot(rootHash);
+    if (!isKnownRoot) {
+      throw new Error(
+        `proof root ${rootHash} is not known by pool ${this.poolAddress}; refresh leaves from chain and retry`,
+      );
+    }
+
     return {
       commitment: commitmentHex,
-      rootHash: toHex32(BigInt(merkleProof.root)),
+      rootHash,
       nullifierHash: nullifierHashHex,
       newNullifier: newNullifierHex,
       newCommitment: newCommitmentHex,

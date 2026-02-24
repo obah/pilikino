@@ -3,15 +3,16 @@ import { Callout } from "nextra/components";
 
 export default function DocsIndexPage() {
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
+    <main className="mx-auto min-h-screen max-w-4xl px-6 py-12">
       <h1 className="text-4xl font-semibold tracking-tight">Pilikino Docs</h1>
       <p className="mt-4 text-lg text-neutral-700 dark:text-neutral-300">
-        Pilikino is the Starknet variant of Privacy Protocol with a relayer-first SDK,
+        Pilikino is a privacy protocol for Starknet with a relayer-first SDK,
         Noir + Garaga proof flow, and Cairo contracts.
       </p>
 
       <Callout className="mt-6" type="info" emoji="⚡">
-        SDK defaults are prewired: pool address, proof artifacts, and relayer URL.
+        SDK defaults are prewired: pool address, proof artifacts, and relayer
+        URL.
       </Callout>
 
       <section className="mt-10">

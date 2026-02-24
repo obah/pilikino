@@ -134,8 +134,8 @@ impl ChainService {
 
                 let mut calldata = Vec::with_capacity(16 + item.proof_calldata.len());
                 calldata.push(op.token);
-                push_u256(&mut calldata, op.amount);
                 calldata.push(op.recipient);
+                push_u256(&mut calldata, op.amount);
                 push_u256(&mut calldata, op.nullifier_hash);
                 calldata.push(Felt::from(item.proof_calldata.len() as u64));
                 calldata.extend_from_slice(&item.proof_calldata);
