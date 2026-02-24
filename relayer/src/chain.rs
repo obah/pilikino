@@ -96,7 +96,13 @@ impl ChainService {
                 .build_call_from_operation(item, &operation)
                 .context("failed to build Starknet call")?;
 
-            match self.account.execute_v3(vec![call]).send().await {
+            match self
+                .account
+                .execute_v3(vec![call])
+                .gas_estimate_multiplier(self.config.send_gas_estimate_multiplier)
+                .send()
+                .await
+            {
                 Ok(result) => {
                     debug!(
                         tx_hash = %format!("{:#x}", result.transaction_hash),

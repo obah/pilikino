@@ -15,6 +15,7 @@ pub struct RelayerConfig {
     pub batch_max_wait_secs: u64,
     pub retry_max_attempts: u32,
     pub retry_base_delay_ms: u64,
+    pub send_gas_estimate_multiplier: f64,
     pub mempool_path: PathBuf,
 }
 
@@ -37,6 +38,8 @@ impl RelayerConfig {
         let batch_max_wait_secs = parse_env("RELAYER_BATCH_MAX_WAIT_SECS", "15")?;
         let retry_max_attempts = parse_env("RELAYER_RETRY_MAX_ATTEMPTS", "5")?;
         let retry_base_delay_ms = parse_env("RELAYER_RETRY_BASE_DELAY_MS", "500")?;
+        let send_gas_estimate_multiplier =
+            parse_env("RELAYER_SEND_GAS_ESTIMATE_MULTIPLIER", "1.2")?;
 
         let mempool_path = PathBuf::from(
             env::var("RELAYER_MEMPOOL_PATH")
@@ -48,6 +51,11 @@ impl RelayerConfig {
         }
         if retry_max_attempts == 0 {
             return Err(anyhow!("RELAYER_RETRY_MAX_ATTEMPTS must be > 0"));
+        }
+        if send_gas_estimate_multiplier <= 0.0 {
+            return Err(anyhow!(
+                "RELAYER_SEND_GAS_ESTIMATE_MULTIPLIER must be > 0"
+            ));
         }
 
         Ok(Self {
@@ -62,6 +70,7 @@ impl RelayerConfig {
             batch_max_wait_secs,
             retry_max_attempts,
             retry_base_delay_ms,
+            send_gas_estimate_multiplier,
             mempool_path,
         })
     }
