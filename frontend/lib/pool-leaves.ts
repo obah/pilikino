@@ -120,6 +120,52 @@ function extractExecuteActionNewCommitmentFromCalldata(
     return null;
   }
 
+  const poolAddressWord = BigInt(poolAddress);
+  const executeActionSelectorWord = BigInt(EXECUTE_ACTION_SELECTOR);
+
+  // First, support modern account encoding (ExecutionEncoding::New):
+  // [calls_len, to, selector, calldata_len, calldata..., ...]
+  {
+    let cursor = 1;
+    let decodedAllCalls = true;
+
+    for (let i = 0; i < callCount; i += 1) {
+      if (cursor + 2 >= parsed.length) {
+        decodedAllCalls = false;
+        break;
+      }
+
+      const to = parsed[cursor];
+      const selectorWord = parsed[cursor + 1];
+      const callDataLen = asUsize(parsed[cursor + 2]);
+      if (callDataLen === null) {
+        decodedAllCalls = false;
+        break;
+      }
+
+      const callDataStart = cursor + 3;
+      const callDataEnd = callDataStart + callDataLen;
+      if (callDataEnd > parsed.length) {
+        decodedAllCalls = false;
+        break;
+      }
+
+      if (to === poolAddressWord && selectorWord === executeActionSelectorWord && callDataLen >= 2) {
+        const newCommitmentLow = parsed[callDataEnd - 2];
+        const newCommitmentHigh = parsed[callDataEnd - 1];
+        return toHex32((newCommitmentHigh << 128n) + newCommitmentLow);
+      }
+
+      cursor = callDataEnd;
+    }
+
+    if (decodedAllCalls && cursor === parsed.length) {
+      return null;
+    }
+  }
+
+  // Fallback for legacy account encoding:
+  // [calls_len, to, selector, data_offset, data_len, ..., flattened_len, flattened_data...]
   const callsStart = 1;
   const callsWidth = callCount * 4;
   const flattenedLenIndex = callsStart + callsWidth;
@@ -138,16 +184,16 @@ function extractExecuteActionNewCommitmentFromCalldata(
     return null;
   }
 
-  const poolAddressWord = BigInt(poolAddress);
-  const executeActionSelectorWord = BigInt(EXECUTE_ACTION_SELECTOR);
-
   for (let i = 0; i < callCount; i += 1) {
     const callOffset = callsStart + i * 4;
+    if (callOffset + 3 >= parsed.length) {
+      break;
+    }
+
     const to = parsed[callOffset];
     const selectorWord = parsed[callOffset + 1];
     const dataOffset = asUsize(parsed[callOffset + 2]);
     const dataLen = asUsize(parsed[callOffset + 3]);
-
     if (dataOffset === null || dataLen === null) {
       continue;
     }

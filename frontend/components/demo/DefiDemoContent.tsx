@@ -15,7 +15,7 @@ import type {
   NormalTransactionReporter,
   PrivateTransactionReporter,
 } from "./transaction-log-types";
-import { useDeposit, useExecuteAction } from "pilikino/hooks";
+import { useDeposit, useExecuteAction, useWithdraw } from "pilikino/hooks";
 import { useAccount, useProvider } from "@starknet-react/core";
 import { CallData, hash } from "starknet";
 
@@ -23,6 +23,12 @@ interface DefiDemoContentProps {
   isIncognito: boolean;
   onNormalTransaction?: NormalTransactionReporter;
   onPrivateTransaction?: PrivateTransactionReporter;
+}
+
+interface RelayStatusWire {
+  status?: string;
+  tx_hash?: string | null;
+  error?: string | null;
 }
 
 function parseU256(words: Array<string | bigint>, start = 0): bigint {
@@ -65,11 +71,17 @@ export default function DefiDemoContent({
     account,
   });
 
-  const { executeAction } = useExecuteAction({
+  const { executeAction, sdk: pilikinoSdk } = useExecuteAction({
     poolAddress: DEMO_CONTRACTS.PilikinoPool,
     provider,
     account,
     relayer: DEMO_RELAYER_CONFIG,
+  });
+
+  const { withdraw } = useWithdraw({
+    poolAddress: DEMO_CONTRACTS.PilikinoPool,
+    provider,
+    account,
   });
 
   const parsedAmount = useMemo(() => parseAmountInput(amountIn), [amountIn]);
@@ -128,6 +140,119 @@ export default function DefiDemoContent({
   const isPending = isIncognito
     ? isPrivatePending
     : pendingTxType !== null;
+
+  const sleep = (ms: number) =>
+    new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+
+  const resolveRelayTxHash = useCallback(
+    async (txHash: string, timeoutMs: number = 180_000): Promise<`0x${string}`> => {
+      if (txHash.startsWith("0x")) {
+        return toHexTxHash(txHash);
+      }
+
+      const requestId = txHash.startsWith("relay:") ? txHash.slice("relay:".length) : txHash;
+      if (!requestId) {
+        throw new Error("Invalid relay request id");
+      }
+      if (!pilikinoSdk) {
+        throw new Error("Pilikino SDK not ready for relay status polling");
+      }
+
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < timeoutMs) {
+        const status = (await pilikinoSdk.getRelayStatus(requestId)) as RelayStatusWire;
+
+        if (status.status === "submitted" && status.tx_hash) {
+          return toHexTxHash(status.tx_hash);
+        }
+
+        if (status.status === "failed") {
+          throw new Error(status.error ?? "Relayer submission failed");
+        }
+
+        await sleep(2_000);
+      }
+
+      throw new Error("Timed out waiting for relayer submission.");
+    },
+    [pilikinoSdk],
+  );
+
+  const autoWithdrawSwapOutput = useCallback(
+    async (params: {
+      relayOrTxHash: string;
+      secret: string;
+      nullifier: string;
+      commitment: string;
+      amountInPool: string;
+    }) => {
+      if (!account || !address) {
+        return;
+      }
+
+      toast.info("Private swap queued. Waiting for relay confirmation...");
+
+      const onchainHash = await resolveRelayTxHash(params.relayOrTxHash);
+      await provider.waitForTransaction(onchainHash);
+
+      const noteAmount = BigInt(params.amountInPool);
+      if (noteAmount <= 0n) {
+        toast.info("Private swap confirmed. No remaining note amount to auto-withdraw.");
+        return;
+      }
+
+      const leaves = await fetchPoolCommitmentLeavesWithRetry(
+        provider,
+        DEMO_CONTRACTS.PilikinoPool,
+        params.commitment,
+      );
+
+      const withdrawResult = await withdraw({
+        token: DEMO_CONTRACTS.USDTpp,
+        recipient: address,
+        amountToWithdraw: noteAmount,
+        amountInPool: noteAmount,
+        secret: params.secret,
+        nullifier: params.nullifier,
+        leaves,
+        account,
+      });
+
+      onPrivateTransaction?.({
+        hash: withdrawResult.txHash,
+        source: "defi",
+        methodHint: "withdraw(USDTpp)",
+        parametersHint: `recipient=${address}, amount=${noteAmount.toString()}`,
+        privacyLevel: "Private",
+        metadata: {
+          initiator: address,
+          gasPayer: withdrawResult.relayRequestId ? "relayer" : address,
+          method: "withdraw",
+          parameters: `token=${DEMO_CONTRACTS.USDTpp}, amount=${noteAmount.toString()}`,
+          status: withdrawResult.relayRequestId ? "pending" : "success",
+          noteCommitment: withdrawResult.proof.newCommitment,
+          relayRequestId: withdrawResult.relayRequestId,
+          relayQueueLength: withdrawResult.relayQueueLength,
+          relayGasEstimate: withdrawResult.relayGasEstimate,
+          relayMinRequiredFeeWei: withdrawResult.relayMinRequiredFeeWei,
+        },
+      });
+
+      toast.success("USDTpp auto-withdraw submitted.");
+      await refreshBalances();
+    },
+    [
+      account,
+      address,
+      onPrivateTransaction,
+      provider,
+      refreshBalances,
+      resolveRelayTxHash,
+      withdraw,
+    ],
+  );
 
   const ensurePoolApproval = useCallback(async () => {
     if (!account || !address || !parsedAmount) {
@@ -196,7 +321,7 @@ export default function DefiDemoContent({
 
     await provider.waitForTransaction(swapTx.transaction_hash);
     toast.success("Swap successful!");
-  }, [account, amountIn, onNormalTransaction, parsedAmount, provider]);
+  }, [account, amountIn, onNormalTransaction, parsedAmount, provider, address]);
 
   const handleAction = async () => {
     if (!address || !account) {
@@ -278,7 +403,23 @@ export default function DefiDemoContent({
           },
         });
 
-        toast.success("Private swap submitted successfully.");
+        void autoWithdrawSwapOutput({
+          relayOrTxHash: executeResult.txHash,
+          secret: depositResult.secret,
+          nullifier: executeResult.proof.newNullifier,
+          commitment: executeResult.proof.newCommitment,
+          amountInPool: executeResult.proof.amountLeft,
+        }).catch((error) => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Auto-withdraw after private swap failed.";
+          toast.error(message);
+        });
+
+        toast.success(
+          "Private swap submitted. Auto-withdraw will run after confirmation.",
+        );
         setAmountIn("");
         await refreshBalances();
       } catch (error) {

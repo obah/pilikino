@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import DaoDemoContent from "@/components/demo/DaoDemoContent";
-import DefiDemoContent from "@/components/demo/DefiDemoContent";
 import type {
   NormalTransactionEvent,
   NormalTransactionReporter,
@@ -17,17 +16,13 @@ import {
 import { cn } from "@/lib/utils";
 import {
   ExternalLink,
-  LayoutDashboard,
   Lock,
   TerminalSquare,
-  Vote,
 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useProvider } from "@starknet-react/core";
-
-type DemoTab = "dao" | "defi";
 
 interface NormalTransactionLog extends NormalTransactionEvent {
   id: string;
@@ -460,7 +455,6 @@ function PrivateTransactionCard({ log }: { log: PrivateTransactionLog }) {
 }
 
 export default function DemoPage() {
-  const [activeTab, setActiveTab] = useState<DemoTab>("dao");
   const [normalLogs, setNormalLogs] = useState<NormalTransactionLog[]>([]);
   const [privateLogs, setPrivateLogs] = useState<PrivateTransactionLog[]>([]);
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -620,80 +614,19 @@ export default function DemoPage() {
     };
   }, [privateLogs]);
 
-  const tabContent = {
-    dao: {
-      title: "Governance",
-      description: `Vote on proposals ${
-        isIncognito ? "privately through Pilikino" : "publicly"
-      }`,
-      action: "vote",
-      component: (
-        <DaoDemoContent
-          isIncognito={isIncognito}
-          onNormalTransaction={onNormalTransaction}
-          onPrivateTransaction={onPrivateTransaction}
-        />
-      ),
-    },
-    defi: {
-      title: "DeFi Swap",
-      description: `Swap tokens ${
-        isIncognito ? "privately through Pilikino" : "publicly"
-      }`,
-      action: "swap",
-      component: (
-        <DefiDemoContent
-          isIncognito={isIncognito}
-          onNormalTransaction={onNormalTransaction}
-          onPrivateTransaction={onPrivateTransaction}
-        />
-      ),
-    },
-  };
-
-  const currentTab = tabContent[activeTab];
-
   return (
     <main className="bg-background relative min-h-screen w-full overflow-x-hidden">
       <div className="border-primary mt-10 h-10 w-screen border-y"></div>
       <section className="relative z-10 container mx-auto flex flex-col items-start gap-10 px-4 pb-20 lg:flex-row lg:justify-between">
         <div className="w-full lg:w-1/2">
-          <div className="mt-2 mb-8 space-y-4">
-            <div className="flex gap-4">
-              <button
-                onClick={() => setActiveTab("dao")}
-                className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all",
-                  activeTab === "dao"
-                    ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-800 shadow-[0_0_0_1px_rgba(16,185,129,0.14),0_8px_20px_-16px_rgba(16,185,129,0.45)] dark:border-emerald-300/60 dark:bg-[radial-gradient(circle_at_top,#1a3f2c_0%,#0b1711_100%)] dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.18),0_10px_20px_-16px_rgba(16,185,129,0.95)]"
-                    : "border-emerald-500/35 bg-transparent text-emerald-700/85 hover:border-emerald-500/55 hover:text-emerald-900 dark:border-emerald-500/25 dark:bg-[#050b08] dark:text-emerald-200/70 dark:hover:border-emerald-300/40 dark:hover:text-emerald-100",
-                )}
-              >
-                <Vote size={18} />
-                Governance
-              </button>
-              <button
-                onClick={() => setActiveTab("defi")}
-                className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all",
-                  activeTab === "defi"
-                    ? "border-emerald-500/45 bg-emerald-500/10 text-emerald-800 shadow-[0_0_0_1px_rgba(16,185,129,0.14),0_8px_20px_-16px_rgba(16,185,129,0.45)] dark:border-emerald-300/60 dark:bg-[radial-gradient(circle_at_top,#1a3f2c_0%,#0b1711_100%)] dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.18),0_10px_20px_-16px_rgba(16,185,129,0.95)]"
-                    : "border-emerald-500/35 bg-transparent text-emerald-700/85 hover:border-emerald-500/55 hover:text-emerald-900 dark:border-emerald-500/25 dark:bg-[#050b08] dark:text-emerald-200/70 dark:hover:border-emerald-300/40 dark:hover:text-emerald-100",
-                )}
-              >
-                <LayoutDashboard size={18} />
-                DeFi
-              </button>
-            </div>
-          </div>
           <div className="mb-10 pt-6">
             <h1 className="mb-2 text-3xl font-bold tracking-tight">
-              {currentTab.title}
+              Governance
             </h1>
             <div className="space-y-1">
               <div className="flex flex-wrap gap-2">
                 <p className="text-muted-foreground text-sm">
-                  {currentTab.description}
+                  Vote on proposals {isIncognito ? "privately through Pilikino" : "publicly"}
                 </p>
                 <Button
                   variant={"link"}
@@ -701,8 +634,8 @@ export default function DemoPage() {
                   onClick={triggerIncognito}
                 >
                   {isIncognito
-                    ? `Turn off incognito mode to ${currentTab.action} publicly`
-                    : `Turn on incognito mode to ${currentTab.action} privately`}
+                    ? "Turn off incognito mode to vote publicly"
+                    : "Turn on incognito mode to vote privately"}
                 </Button>
               </div>
               <p className="text-muted-foreground text-sm">
@@ -710,7 +643,13 @@ export default function DemoPage() {
               </p>
             </div>
           </div>
-          <div className="min-h-[500px]">{currentTab.component}</div>
+          <div className="min-h-[500px]">
+            <DaoDemoContent
+              isIncognito={isIncognito}
+              onNormalTransaction={onNormalTransaction}
+              onPrivateTransaction={onPrivateTransaction}
+            />
+          </div>
         </div>
 
         <div className="hidden self-stretch border border-emerald-500/35 lg:block dark:border-emerald-500/30"></div>
@@ -744,7 +683,7 @@ export default function DemoPage() {
 
               {normalLogs.length === 0 ? (
                 <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/5 p-4 font-mono text-xs text-emerald-800/80 dark:border-emerald-500/20 dark:text-emerald-200/70">
-                  Perform a vote or swap to see its logs here.
+                  Perform a vote to see its logs here.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -763,7 +702,7 @@ export default function DemoPage() {
                 </p>
               </div>
               <p className="mb-2 text-xs text-sky-800/80 dark:text-sky-200/70">
-                Perform a vote or swap in incognito mode to see its logs here.
+                Perform a vote in incognito mode to see its logs here.
                 Private actions are submitted to the relayer and later batched
                 on-chain. The relayer pays gas on submission.
               </p>
