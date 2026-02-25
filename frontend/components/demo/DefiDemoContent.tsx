@@ -441,7 +441,7 @@ export default function DefiDemoContent({
           privacyLevel: "Private",
           metadata: {
             initiator: address,
-            gasPayer: executeResult.relayRequestId ? "relayer" : address,
+            gasPayer: executeResult.relayRequestId ? undefined : address,
             method: "swap_simple",
             parameters: `amountIn=${amountIn}`,
             status: executeResult.relayRequestId ? "pending" : "success",

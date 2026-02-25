@@ -322,9 +322,14 @@ function PrivateTransactionCard({ log }: { log: PrivateTransactionLog }) {
     undefined;
   const { transaction, receipt } = useStarknetTransaction(onchainHash);
 
-  const txSenderRaw =
-    txSender(transaction) ?? log.metadata?.initiator ?? "pending...";
-  const gasPayerRaw = log.metadata?.gasPayer ?? txSenderRaw;
+  const isRelayed = Boolean(log.metadata?.relayRequestId);
+  const chainSender = txSender(transaction);
+  const txSenderRaw = chainSender ??
+    (isRelayed ? "pending..." : log.metadata?.initiator ?? "pending...");
+  const gasPayerRaw =
+    chainSender ??
+    log.metadata?.gasPayer ??
+    (isRelayed ? "pending..." : txSenderRaw);
   const targetCallerRaw = log.metadata?.proxyAddress;
   const method = log.metadata?.method ?? log.methodHint;
   const parameters = truncatePrivateParameters(

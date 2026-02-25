@@ -324,7 +324,7 @@ function ProposalCard({
           privacyLevel: "Private",
           metadata: {
             initiator: address,
-            gasPayer: executeResult.relayRequestId ? "relayer" : address,
+            gasPayer: executeResult.relayRequestId ? undefined : address,
             method: "vote",
             parameters: `proposalId=${id}, support=${support}`,
             status: executeResult.relayRequestId ? "pending" : "success",
