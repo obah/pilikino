@@ -29,26 +29,28 @@ function FeatureCard({ feature, className, ...props }: FeatureCardPorps) {
   const p = genRandomPattern();
 
   return (
-    <div className={cn("relative overflow-hidden p-6", className)} {...props}>
+    <div className={cn("relative overflow-hidden p-8", className)} {...props}>
       <div className="pointer-events-none absolute top-0 left-1/2 -mt-2 -ml-20 h-full w-full mask-[linear-gradient(white,transparent)]">
-        <div className="absolute inset-0 bg-linear-to-r from-green-500/20 to-green-500/5 mask-[radial-gradient(farthest-side_at_top,white,transparent)] opacity-100">
+        <div className="from-primary/20 to-primary/5 absolute inset-0 bg-linear-to-r mask-[radial-gradient(farthest-side_at_top,white,transparent)] opacity-100 transition-opacity duration-500 group-hover:opacity-100">
           <GridPattern
             width={20}
             height={20}
             x="-12"
             y="4"
             squares={p}
-            className="absolute inset-0 h-full w-full fill-green-500/5 stroke-green-500/20 mix-blend-overlay"
+            className="fill-primary/10 stroke-primary/20 absolute inset-0 h-full w-full mix-blend-overlay"
           />
         </div>
       </div>
       <feature.icon
-        className="size-6 text-green-500"
+        className="text-primary size-8 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)] transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
         strokeWidth={1.5}
         aria-hidden
       />
-      <h3 className="mt-10 text-sm font-medium md:text-xl">{feature.title}</h3>
-      <p className="text-muted-foreground relative z-20 mt-2 text-sm font-light">
+      <h3 className="text-primary/90 mt-10 text-sm font-bold tracking-wide uppercase md:text-xl">
+        {feature.title}
+      </h3>
+      <p className="text-primary/60 group-hover:text-primary/80 relative z-20 mt-3 font-mono text-sm leading-relaxed transition-colors">
         {feature.description}
       </p>
     </div>
@@ -158,13 +160,14 @@ const benefits = [
 
 export default function BenefitsSection() {
   return (
-    <section className="w-full py-16 md:py-32">
-      <div className="mx-auto w-full space-y-8 px-4">
+    <section className="relative w-full py-16 md:py-32">
+      <div className="bg-primary/5 from-primary/10 via-background to-background pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))]" />
+      <div className="relative z-10 mx-auto w-full space-y-12 px-4">
         <AnimatedContainer className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-bold tracking-wide text-balance md:text-4xl lg:text-5xl xl:font-extrabold">
+          <h2 className="neon-text text-3xl font-bold tracking-widest text-balance uppercase md:text-4xl lg:text-5xl">
             Secure. Simple. Seamless.
           </h2>
-          <p className="text-muted-foreground mt-4 text-sm tracking-wide text-balance md:text-base">
+          <p className="text-primary/70 mt-4 font-mono text-sm tracking-widest text-balance md:text-base">
             Everything you need to easily and efficiently integrate privacy into
             your application.
           </p>
@@ -172,10 +175,14 @@ export default function BenefitsSection() {
 
         <AnimatedContainer
           delay={0.4}
-          className="grid w-full grid-cols-1 divide-x divide-y divide-dashed border border-dashed sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3"
+          className="divide-primary/20 border-primary/20 grid w-full grid-cols-1 divide-x divide-y border bg-black/40 shadow-[0_0_30px_rgba(34,197,94,0.05)] backdrop-blur-sm sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3"
         >
           {benefits.map((benefit, i) => (
-            <FeatureCard key={i} feature={benefit} />
+            <FeatureCard
+              key={i}
+              feature={benefit}
+              className="hover:bg-primary/5 group transition-colors duration-500"
+            />
           ))}
         </AnimatedContainer>
       </div>

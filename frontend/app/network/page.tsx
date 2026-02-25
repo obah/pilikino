@@ -40,19 +40,22 @@ const steps = [
 
 export default function NetworkPage() {
   return (
-    <main className="bg-background text-foreground min-h-screen transition-colors duration-300">
-      <Navbar />
+    <main className="bg-background text-primary relative min-h-screen transition-colors duration-300">
+      <div className="bg-primary/5 from-primary/10 via-background to-background pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))]" />
+      <div className="relative z-20">
+        <Navbar />
+      </div>
 
-      <section className="px-6 pt-36 pb-20">
+      <section className="relative z-10 px-6 pt-36 pb-20">
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-medium tracking-[0.16em] text-emerald-400 uppercase">
+            <p className="neon-text text-sm font-bold tracking-[0.16em] uppercase">
               Power The Pilikino
             </p>
             <h1 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
               Turn your idle compute into yield. Run a Pilikino Relayer.
             </h1>
-            <p className="text-muted-foreground mt-6 text-base leading-relaxed sm:text-lg">
+            <p className="text-primary/70 mt-6 font-mono text-base leading-relaxed sm:text-lg">
               Operate infrastructure that routes private transactions at scale
               and get paid for keeping the network open and resilient.
             </p>
@@ -60,10 +63,13 @@ export default function NetworkPage() {
               <Link
                 href="/docs/operators/join-relayer-network"
                 target="_blank"
-                className="bg-foreground text-background inline-flex items-center gap-2 rounded-sm px-7 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+                className="group border-primary bg-primary/10 text-primary hover:bg-primary/20 relative flex items-center gap-2 overflow-hidden rounded-sm border px-8 py-3 text-sm font-bold tracking-widest uppercase transition-all hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]"
               >
-                Run a Node
-                <ArrowRight size={16} />
+                <span className="relative z-10">Run a Node</span>
+                <ArrowRight
+                  size={18}
+                  className="relative z-10 transition-transform group-hover:translate-x-1"
+                />
               </Link>
             </div>
           </div>
@@ -72,13 +78,15 @@ export default function NetworkPage() {
             {benefits.map(({ title, description, icon: Icon }) => (
               <article
                 key={title}
-                className="glass rounded-xl border border-emerald-500/20 p-6"
+                className="group text-card-foreground border-primary/20 hover:border-primary/50 relative z-10 cursor-default rounded-xl border bg-black/40 p-6 shadow-[0_0_15px_rgba(34,197,94,0.05)] backdrop-blur-md transition-all hover:bg-black/60 hover:shadow-[0_0_25px_rgba(34,197,94,0.15)]"
               >
-                <div className="bg-emerald-500/10 mb-4 inline-flex rounded-lg p-2.5">
-                  <Icon className="h-5 w-5 text-emerald-400" />
+                <div className="bg-primary/10 group-hover:bg-primary/20 mb-4 inline-flex rounded-lg p-2.5 transition-colors">
+                  <Icon className="text-primary h-6 w-6 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)] transition-transform group-hover:scale-110" />
                 </div>
-                <h2 className="text-lg font-semibold text-white">{title}</h2>
-                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                <h2 className="text-primary/90 text-lg font-bold tracking-wide uppercase">
+                  {title}
+                </h2>
+                <p className="text-primary/60 group-hover:text-primary/80 mt-2 font-mono text-sm leading-relaxed transition-colors">
                   {description}
                 </p>
               </article>
@@ -87,13 +95,13 @@ export default function NetworkPage() {
         </div>
       </section>
 
-      <section className="px-6 pb-24">
-        <div className="mx-auto max-w-6xl rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-8 sm:p-10">
+      <section className="relative z-10 px-6 pb-24">
+        <div className="border-primary/20 mx-auto max-w-6xl rounded-2xl border bg-black/40 p-8 shadow-[0_0_15px_rgba(34,197,94,0.05)] backdrop-blur-md sm:p-10">
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-white sm:text-3xl">
+            <h2 className="neon-text text-2xl font-bold tracking-widest uppercase sm:text-3xl">
               How Operator Flow Works
             </h2>
-            <p className="text-muted-foreground mt-3 text-sm sm:text-base">
+            <p className="text-primary/70 mt-3 font-mono text-sm sm:text-base">
               The relayer network is designed so operators have clear economics
               and the protocol gains stronger decentralization over time.
             </p>
@@ -103,15 +111,15 @@ export default function NetworkPage() {
             {steps.map((step, idx) => (
               <div
                 key={step.title}
-                className="rounded-xl border border-emerald-500/25 bg-background/60 p-5"
+                className="group border-primary/20 bg-background/60 hover:border-primary/50 rounded-xl border p-5 transition-all hover:bg-black/60"
               >
-                <p className="text-xs font-semibold tracking-[0.14em] text-emerald-400 uppercase">
+                <p className="text-primary group-hover:text-primary/90 font-mono text-xs font-bold tracking-[0.14em] uppercase transition-colors">
                   Step {idx + 1}
                 </p>
-                <h3 className="mt-2 text-lg font-semibold text-white">
+                <h3 className="text-primary/90 mt-2 text-lg font-bold tracking-wide uppercase">
                   {step.title}
                 </h3>
-                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                <p className="text-primary/60 group-hover:text-primary/80 mt-2 font-mono text-sm leading-relaxed transition-colors">
                   {step.body}
                 </p>
               </div>
@@ -122,10 +130,13 @@ export default function NetworkPage() {
             <Link
               href="/docs/operators/join-relayer-network"
               target="_blank"
-              className="border-foreground/30 text-foreground inline-flex items-center gap-2 rounded-sm border px-6 py-3 text-sm font-medium transition-colors hover:border-emerald-400/50 hover:text-emerald-200"
+              className="group border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/80 relative inline-flex items-center gap-2 overflow-hidden rounded-sm border bg-transparent px-6 py-3 text-sm font-bold tracking-widest uppercase transition-all hover:shadow-[0_0_15px_rgba(34,197,94,0.2)]"
             >
-              View Operator Docs
-              <ArrowRight size={16} />
+              <span className="relative z-10">View Operator Docs</span>
+              <ArrowRight
+                size={16}
+                className="relative z-10 transition-transform group-hover:translate-x-1"
+              />
             </Link>
           </div>
         </div>

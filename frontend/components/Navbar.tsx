@@ -6,42 +6,19 @@ import { Button, buttonVariants } from "./ui/button";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import Image from "next/image";
-import { useMemo } from "react";
-import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
 import { WalletConnectorModal } from "./WalletConnector";
 
 export const Navbar = () => {
   const { setTheme, theme } = useTheme();
-  const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending: isConnectPending } = useConnect();
-  const { disconnect, isPending: isDisconnectPending } = useDisconnect();
 
   const pathname = usePathname();
   const isDemo = pathname.includes("/demo");
-
-  const preferredConnector = useMemo(() => connectors[0], [connectors]);
 
   const triggerIncognito = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
   const isIncognito = theme === "dark";
-  const shortAddress = address
-    ? `${address.slice(0, 6)}...${address.slice(-4)}`
-    : "Connect Wallet";
-  const isWalletBusy = isConnectPending || isDisconnectPending;
-
-  const handleWalletAction = () => {
-    if (isConnected) {
-      disconnect();
-      return;
-    }
-
-    if (preferredConnector) {
-      connect({ connector: preferredConnector });
-    }
-  };
-
   return (
     <nav className="bg-background/50 fixed top-0 right-0 left-0 z-50 px-8 py-5 backdrop-blur-xl">
       <div className="flex items-center justify-between rounded-sm border border-white/10">

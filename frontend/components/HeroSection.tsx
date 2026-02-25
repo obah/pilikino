@@ -58,15 +58,17 @@ export const HeroSection = () => {
             transition={{ duration: 0.5 }}
             className="space-y-4"
           >
-            <h1 className="bg-clip-text text-[40px] font-bold tracking-tight text-green-500">
-              Pilikino
+            <h1 className="neon-text text-primary bg-clip-text text-[50px] font-bold tracking-widest md:text-[80px]">
+              PILIKINO
             </h1>
-            <div className="mx-auto max-w-4xl text-xl font-semibold text-white md:text-6xl">
-              <p className="inline">The best way to add privacy to your </p>
+            <div className="mx-auto max-w-4xl text-xl font-semibold text-white md:text-5xl">
+              <p className="inline opacity-90">
+                The best way to add privacy to your{" "}
+              </p>
               <AnimatedText
                 texts={rotatingTexts}
                 colors={colors}
-                className="ml-3"
+                className="ml-3 font-mono tracking-wide"
                 duration={1500}
               />
             </div>
@@ -76,14 +78,16 @@ export const HeroSection = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="group relative cursor-pointer overflow-hidden rounded-full border border-green-500/20 backdrop-blur-3xl"
+            className="group border-primary/30 hover:border-primary/60 relative cursor-pointer overflow-hidden rounded-md border bg-black/60 shadow-[0_0_15px_rgba(34,197,94,0.15)] backdrop-blur-3xl transition-all hover:shadow-[0_0_25px_rgba(34,197,94,0.3)]"
             onClick={handleCopy}
           >
             <div className="relative z-10 flex items-center gap-4 px-8 py-5">
-              <p className="font-mono text-lg text-white">{command}</p>
-              <div className="text-muted-foreground">
+              <p className="text-primary font-mono text-lg tracking-wider">
+                {command}
+              </p>
+              <div className="text-primary/70 group-hover:text-primary transition-colors">
                 {copied ? (
-                  <Check size={18} className="text-green-500" />
+                  <Check size={18} className="text-primary" />
                 ) : (
                   <Copy size={18} />
                 )}
@@ -99,12 +103,12 @@ export const HeroSection = () => {
             <Link
               href="/docs"
               target="_blank"
-              className="group bg-foreground text-background relative flex items-center gap-2 rounded-sm px-8 py-3 text-lg font-semibold transition-all hover:cursor-pointer hover:opacity-90"
+              className="group border-primary bg-primary/10 text-primary hover:bg-primary/20 relative flex items-center gap-2 overflow-hidden rounded-sm border px-8 py-3 text-lg font-bold tracking-widest transition-all hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]"
             >
-              Get Started
+              <span className="relative z-10 uppercase">Get Started</span>
               <ArrowRight
                 size={18}
-                className="transition-transform group-hover:translate-x-1"
+                className="relative z-10 transition-transform group-hover:translate-x-1"
               />
             </Link>
           </motion.div>

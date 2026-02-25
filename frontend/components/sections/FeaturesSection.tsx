@@ -45,8 +45,9 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section className="px-6 py-24">
-      <div className="mx-auto max-w-7xl">
+    <section className="relative px-6 py-24">
+      <div className="bg-background pointer-events-none absolute inset-0" />
+      <div className="relative z-10 mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -54,10 +55,10 @@ export function FeaturesSection() {
           transition={{ duration: 0.6 }}
           className="mb-16 text-center"
         >
-          <h2 className="mb-4 text-3xl font-bold text-white sm:text-4xl">
+          <h2 className="neon-text text-primary mb-4 text-3xl font-bold tracking-widest uppercase sm:text-4xl">
             Features
           </h2>
-          <p className="mx-auto max-w-3xl text-lg text-white">
+          <p className="text-primary/70 mx-auto max-w-3xl font-mono text-lg tracking-wide">
             Complete suite of zero-knowledge primitives designed to make privacy
             as standard as a token transfer.
           </p>
@@ -71,7 +72,7 @@ export function FeaturesSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.05 }}
-              className="border-border relative rounded-[1.25rem] border-[0.75px] p-2 md:rounded-[1.5rem] md:p-3"
+              className="border-primary/20 hover:border-primary/50 relative rounded-xl border bg-black/40 p-2 transition-colors md:p-3"
             >
               <GlowingEffect
                 spread={40}
@@ -81,15 +82,15 @@ export function FeaturesSection() {
                 inactiveZone={0.01}
                 borderWidth={3}
               />
-              <div className="bg-background relative flex h-full flex-col gap-6 overflow-hidden rounded-xl border-[0.75px] p-6 shadow-sm dark:shadow-[0px_0px_27px_0px_rgba(45,45,45,0.3)]">
-                <div className="bg-primary/10 group-hover:bg-primary/20 mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-colors">
-                  <feature.icon className="text-primary size-6" />
+              <div className="bg-background border-primary/20 group hover:bg-primary/5 hover:border-primary/40 relative flex h-full flex-col gap-6 overflow-hidden rounded-lg border p-6 shadow-sm transition-all">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-colors">
+                  <feature.icon className="text-primary size-8 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)] transition-transform group-hover:scale-110" />
                 </div>
                 <div className="space-y-3">
-                  <h3 className="text-foreground mb-2 text-lg font-semibold">
+                  <h3 className="text-primary/90 mb-2 text-lg font-bold tracking-widest uppercase">
                     {feature.title}
                   </h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
+                  <p className="text-primary/60 group-hover:text-primary/80 font-mono text-sm leading-relaxed transition-colors">
                     {feature.description}
                   </p>
                 </div>
