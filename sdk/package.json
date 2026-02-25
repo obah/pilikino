@@ -1,7 +1,7 @@
 {
   "name": "pilikino",
   "version": "0.1.0",
-  "description": "Starknet SDK for the Pilikino privacy protocol.",
+  "description": "Plug-and-play privacy middleware SDK with core primitives and React hooks",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
