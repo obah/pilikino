@@ -15,7 +15,7 @@ export interface ExecuteActionArgs {
   target: string;
   selector: string | bigint;
   actionCalldata: AmountLike[];
-  actionId: AmountLike;
+  actionId?: AmountLike;
   amountInPool?: AmountLike;
   secret?: string;
   nullifier?: string;
@@ -96,7 +96,7 @@ export function useExecuteAction(options: UseExecuteActionOptions) {
           metadata: {
             sourceNoteId: args.note?.id,
             target: args.target,
-            actionId: String(args.actionId),
+            actionId: result.actionId,
             type: "executeAction",
           },
         });

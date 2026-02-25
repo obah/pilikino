@@ -27,6 +27,8 @@ import type {
   RelayerTransportConfig,
   RelayQueuedResponse,
   RelayStatusResponse,
+  WithdrawProxyParams,
+  WithdrawProxyResult,
   WithdrawParams,
   WithdrawResult,
 } from "./types";
@@ -46,6 +48,9 @@ import {
 } from "./utils";
 
 const ZERO_DATA_HASH = 0n;
+const ACTION_EXECUTED_EVENT_SELECTOR = toHex32(
+  BigInt(hash.getSelectorFromName("ActionExecuted")),
+);
 
 export const DEFAULT_PILIKINO_POOL_ADDRESS =
   "0x0719784b7a7c45247a9405d7f6acf25d5506423ab31f4af22c4c9613ee40b94d";
@@ -100,6 +105,29 @@ function computeActionCalldataHash(
   const packedKeccak = BigInt(hash.solidityUint256PackedKeccak256(words));
   // Cairo pool truncates by 8 bits: keccak_be / 256.
   return packedKeccak >> 8n;
+}
+
+function computeActionIdFromSecret(secret: bigint): bigint {
+  return normalizeU256(
+    BigInt(hash.solidityUint256PackedKeccak256([secret])),
+    "actionId",
+  );
+}
+
+function normalizeHexAddress(value: string): string {
+  return `0x${BigInt(value).toString(16)}`;
+}
+
+function maybeToHex32(value: string | bigint | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  try {
+    return toHex32(BigInt(value));
+  } catch {
+    return null;
+  }
 }
 
 export class PilikinoSDK {
@@ -410,7 +438,16 @@ export class PilikinoSDK {
       parseBigInt(params.amountToWithdraw, "amountToWithdraw"),
       "amountToWithdraw",
     );
-    const actionId = normalizeU256(parseBigInt(params.actionId, "actionId"), "actionId");
+    const secret = normalizeU256(parseBigInt(params.secret, "secret"), "secret");
+    const derivedActionId = computeActionIdFromSecret(secret);
+    const actionId = params.actionId === undefined
+      ? derivedActionId
+      : normalizeU256(parseBigInt(params.actionId, "actionId"), "actionId");
+    if (actionId !== derivedActionId) {
+      throw new Error(
+        "actionId must equal keccak256(secret) to keep proxy withdrawals bound to the proof secret",
+      );
+    }
     const selectorFelt = parseSelector(params.selector);
     const actionCalldata = params.actionCalldata.map((value, idx) =>
       normalizeField(parseBigInt(value, `actionCalldata[${idx}]`), `actionCalldata[${idx}]`),
@@ -449,6 +486,7 @@ export class PilikinoSDK {
 
       return {
         txHash: `relay:${relayResult.request_id}`,
+        actionId: toHex32(actionId),
         relayRequestId: relayResult.request_id,
         relayQueueLength: relayResult.queue_len,
         relayGasEstimate: relayResult.gas_estimate,
@@ -485,11 +523,109 @@ export class PilikinoSDK {
     const response = (await writer.execute(call)) as unknown as Record<string, unknown>;
     const txHash = txHashFromResponse(response);
     await this.provider.waitForTransaction(txHash);
+    const proxyAddress = await this.getActionProxyFromTx(txHash, proof.nullifierHash);
 
     return {
       txHash,
+      actionId: toHex32(actionId),
+      proxyAddress: proxyAddress ?? undefined,
       proof,
     };
+  }
+
+  async withdrawFromProxy(
+    params: WithdrawProxyParams,
+    account?: AccountInterface,
+  ): Promise<WithdrawProxyResult> {
+    const writer = this.requireWriter(account);
+    const secret = normalizeU256(parseBigInt(params.secret, "secret"), "secret");
+
+    const call: Call = {
+      contractAddress: params.proxyAddress,
+      entrypoint: "withdraw",
+      calldata: [
+        params.token,
+        params.recipient,
+        ...u256ToCalldata(secret),
+      ],
+    };
+
+    const response = (await writer.execute(call)) as unknown as Record<string, unknown>;
+    const txHash = txHashFromResponse(response);
+    await this.provider.waitForTransaction(txHash);
+
+    return { txHash };
+  }
+
+  async getActionProxyFromTx(
+    txHash: string,
+    nullifierHash?: BigNumberish,
+  ): Promise<string | null> {
+    const normalizedTxHash = txHash.startsWith("0x")
+      ? txHash
+      : normalizeHexAddress(txHash);
+
+    const expectedPool = normalizeHexAddress(this.poolAddress).toLowerCase();
+    const expectedNullifier = nullifierHash === undefined
+      ? null
+      : toHex32(normalizeU256(parseBigInt(nullifierHash, "nullifierHash"), "nullifierHash")).toLowerCase();
+
+    try {
+      const receipt = (await this.provider.getTransactionReceipt(
+        normalizedTxHash as any,
+      )) as {
+        events?: Array<{
+          from_address?: string;
+          fromAddress?: string;
+          keys?: Array<string | bigint>;
+        }>;
+      };
+
+      for (const event of receipt.events ?? []) {
+        const fromRaw = event.from_address ?? event.fromAddress;
+        if (!fromRaw) {
+          continue;
+        }
+
+        let fromAddress: string;
+        try {
+          fromAddress = normalizeHexAddress(String(fromRaw)).toLowerCase();
+        } catch {
+          continue;
+        }
+        if (fromAddress !== expectedPool) {
+          continue;
+        }
+
+        const eventSelector = maybeToHex32(event.keys?.[0]);
+        if (!eventSelector || eventSelector.toLowerCase() !== ACTION_EXECUTED_EVENT_SELECTOR.toLowerCase()) {
+          continue;
+        }
+
+        if (expectedNullifier) {
+          const nullifierLow = event.keys?.[1];
+          const nullifierHigh = event.keys?.[2];
+          if (nullifierLow === undefined || nullifierHigh === undefined) {
+            continue;
+          }
+          const nullifierWord = toHex32((BigInt(nullifierHigh) << 128n) + BigInt(nullifierLow)).toLowerCase();
+          if (nullifierWord !== expectedNullifier) {
+            continue;
+          }
+        }
+
+        const proxyRaw = event.keys?.[3];
+        if (proxyRaw === undefined) {
+          continue;
+        }
+
+        return normalizeHexAddress(String(proxyRaw));
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
   }
 
   async getRelayStatus(requestId: string): Promise<RelayStatusResponse> {

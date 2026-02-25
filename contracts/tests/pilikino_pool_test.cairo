@@ -39,10 +39,12 @@ fn setup_pool() -> PoolSetup {
     let owner = addr(999);
 
     let verifier_address = deploy_contract("UltraKeccakZKHonkVerifier", @array![]);
+    let proxy_class = declare("PilikinoProxy").unwrap().contract_class();
 
     let verifier_felt: felt252 = verifier_address.into();
+    let proxy_class_hash_felt: felt252 = (*proxy_class).class_hash.into();
     let owner_felt: felt252 = owner.into();
-    let pool_constructor = array![20, verifier_felt, owner_felt];
+    let pool_constructor = array![20, verifier_felt, proxy_class_hash_felt, owner_felt];
     let pool_address = deploy_contract("PilikinoPool", @pool_constructor);
     let pool = IPilikinoPoolDispatcher { contract_address: pool_address };
 

@@ -1,6 +1,7 @@
-use starknet::ContractAddress;
+use starknet::{ClassHash, ContractAddress};
 use openzeppelin_access::ownable::OwnableComponent;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use crate::pilikino_proxy::{IPilikinoProxyDispatcher, IPilikinoProxyDispatcherTrait};
 
 use crate::verifier::honk_verifier::{
     IUltraKeccakZKHonkVerifierDispatcher, IUltraKeccakZKHonkVerifierDispatcherTrait,
@@ -45,9 +46,11 @@ pub trait IPilikinoPool<TContractState> {
     fn is_known_root(self: @TContractState, root: u256) -> bool;
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
     fn get_verifier(self: @TContractState) -> ContractAddress;
+    fn get_proxy_class_hash(self: @TContractState) -> ClassHash;
     fn get_root(self: @TContractState, index: u32) -> u256;
     fn add_supported_token(ref self: TContractState, token: ContractAddress);
     fn update_verifier(ref self: TContractState, new_verifier: ContractAddress);
+    fn update_proxy_class_hash(ref self: TContractState, new_proxy_class_hash: ClassHash);
     fn transfer_ownership(ref self: TContractState, new_owner: ContractAddress);
 }
 
@@ -64,12 +67,13 @@ mod PilikinoPool {
         StoragePointerWriteAccess,
     };
     use starknet::{
-        ContractAddress, SyscallResultTrait, get_caller_address, get_contract_address,
-        get_execution_info,
+        ClassHash, ContractAddress, SyscallResultTrait, get_caller_address,
+        get_contract_address, get_execution_info,
     };
 
     use super::{
         BN254_FR, IPilikinoPool, IERC20Dispatcher, IERC20DispatcherTrait,
+        IPilikinoProxyDispatcher, IPilikinoProxyDispatcherTrait,
         IUltraKeccakZKHonkVerifierDispatcher, IUltraKeccakZKHonkVerifierDispatcherTrait,
         ROOT_MAX_SIZE, TWO_POW_8, OwnableComponent,
     };
@@ -83,6 +87,8 @@ mod PilikinoPool {
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
         verifier: ContractAddress,
+        proxy_class_hash: ClassHash,
+        proxy_nonce: felt252,
         merkle_tree_depth: u32,
         next_leaf_index: u32,
         current_root_index: u32,
@@ -103,6 +109,7 @@ mod PilikinoPool {
         ActionExecuted: ActionExecuted,
         TokenAdded: TokenAdded,
         VerifierUpdated: VerifierUpdated,
+        ProxyClassHashUpdated: ProxyClassHashUpdated,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
     }
@@ -136,6 +143,8 @@ mod PilikinoPool {
         #[key]
         nullifier_hash: u256,
         #[key]
+        proxy: ContractAddress,
+        #[key]
         target: ContractAddress,
         selector: felt252,
         timestamp: u64,
@@ -155,21 +164,32 @@ mod PilikinoPool {
         timestamp: u64,
     }
 
+    #[derive(Drop, starknet::Event)]
+    struct ProxyClassHashUpdated {
+        #[key]
+        class_hash: ClassHash,
+        timestamp: u64,
+    }
+
     #[constructor]
     fn constructor(
         ref self: ContractState,
         merkle_tree_depth: u32,
         verifier: ContractAddress,
+        proxy_class_hash: ClassHash,
         initial_owner: ContractAddress,
     ) {
         assert(merkle_tree_depth > 0 && merkle_tree_depth < 32, 'invalid tree depth');
         assert(!verifier.is_zero(), 'invalid verifier');
+        assert_non_zero_class_hash(proxy_class_hash);
 
         let owner = if initial_owner.is_zero() { get_caller_address() } else { initial_owner };
         assert(!owner.is_zero(), 'invalid owner');
 
         self.ownable.initializer(owner);
         self.verifier.write(verifier);
+        self.proxy_class_hash.write(proxy_class_hash);
+        self.proxy_nonce.write(0);
         self.merkle_tree_depth.write(merkle_tree_depth);
         self.reentrancy_lock.write(false);
 
@@ -338,26 +358,22 @@ mod PilikinoPool {
             );
 
             self.nullifier_hashes.write(nullifier_hash, true);
+            let proxy = deploy_action_proxy(ref self, action_id);
 
             if amount > 0 {
                 self.token_balances.write(token, available_balance - amount);
                 let token_dispatcher = IERC20Dispatcher { contract_address: token };
-                assert(token_dispatcher.approve(target, amount), 'approve failed');
+                assert(token_dispatcher.transfer(proxy, amount), 'transfer failed');
             }
 
-            starknet::syscalls::call_contract_syscall(target, selector, action_calldata.span())
-                .unwrap_syscall();
-
-            if amount > 0 {
-                let token_dispatcher = IERC20Dispatcher { contract_address: token };
-                assert(token_dispatcher.approve(target, 0), 'reset approve failed');
-            }
+            let proxy_dispatcher = IPilikinoProxyDispatcher { contract_address: proxy };
+            proxy_dispatcher.execute(token, amount, target, selector, action_calldata);
 
             insert_commitment(ref self, new_commitment);
             self.commitments.write(new_commitment, true);
 
             let timestamp = block_timestamp();
-            self.emit(ActionExecuted { nullifier_hash, target, selector, timestamp });
+            self.emit(ActionExecuted { nullifier_hash, proxy, target, selector, timestamp });
 
             exit_non_reentrant(ref self);
             true
@@ -373,6 +389,10 @@ mod PilikinoPool {
 
         fn get_verifier(self: @ContractState) -> ContractAddress {
             self.verifier.read()
+        }
+
+        fn get_proxy_class_hash(self: @ContractState) -> ClassHash {
+            self.proxy_class_hash.read()
         }
 
         fn get_root(self: @ContractState, index: u32) -> u256 {
@@ -400,6 +420,17 @@ mod PilikinoPool {
             self.emit(VerifierUpdated { verifier: new_verifier, timestamp });
         }
 
+        fn update_proxy_class_hash(ref self: ContractState, new_proxy_class_hash: ClassHash) {
+            assert_owner(@self);
+            assert_non_zero_class_hash(new_proxy_class_hash);
+
+            self.proxy_class_hash.write(new_proxy_class_hash);
+
+            let timestamp = block_timestamp();
+            self
+                .emit(ProxyClassHashUpdated { class_hash: new_proxy_class_hash, timestamp });
+        }
+
         fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
             assert(!new_owner.is_zero(), 'new owner zero');
             self.ownable.assert_only_owner();
@@ -418,6 +449,33 @@ mod PilikinoPool {
 
     fn exit_non_reentrant(ref self: ContractState) {
         self.reentrancy_lock.write(false);
+    }
+
+    fn assert_non_zero_class_hash(class_hash: ClassHash) {
+        let class_hash_felt: felt252 = class_hash.into();
+        assert(class_hash_felt != 0, 'invalid proxy class');
+    }
+
+    fn deploy_action_proxy(ref self: ContractState, action_id: u256) -> ContractAddress {
+        let proxy_class_hash = self.proxy_class_hash.read();
+        assert_non_zero_class_hash(proxy_class_hash);
+
+        let salt = self.proxy_nonce.read();
+        self.proxy_nonce.write(salt + 1);
+
+        let action_id_low: felt252 = action_id.low.into();
+        let action_id_high: felt252 = action_id.high.into();
+        let pool = get_contract_address();
+        let pool_felt: felt252 = pool.into();
+
+        let constructor_calldata = array![action_id_low, action_id_high, pool_felt];
+
+        let (proxy_address, _) = starknet::syscalls::deploy_syscall(
+            proxy_class_hash, salt, constructor_calldata.span(), false,
+        )
+            .unwrap_syscall();
+
+        proxy_address
     }
 
     fn verify_public_inputs(

@@ -54,7 +54,6 @@ const onPrivateSwap = async () => {
     target,
     selector: "swap_simple",
     actionCalldata: [40n],
-    actionId: BigInt(Date.now()),
     amountInPool: 100n,
     secret: created.secret,
     nullifier: created.nullifier,

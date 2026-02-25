@@ -3,7 +3,7 @@ import { DEFAULT_RELAYER_TRANSPORT_CONFIG } from "pilikino/core";
 export const DEMO_CONTRACTS = {
   PilikinoPool:
     process.env.NEXT_PUBLIC_PILIKINO_POOL_ADDRESS ??
-    "0x0719784b7a7c45247a9405d7f6acf25d5506423ab31f4af22c4c9613ee40b94d",
+    "0x054dfa88049969667a726cb4c0e0f99245719448ec7f505a8d58ec8c81a461a7",
   DemoDao:
     process.env.NEXT_PUBLIC_DEMO_DAO_ADDRESS ??
     "0x057a61a78695df5efab39c679ffdc13462cabc828459e8272eb0fda38091ec90",

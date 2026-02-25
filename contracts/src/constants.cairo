@@ -1,6 +1,7 @@
 use starknet::{ContractAddress, contract_address_const};
 
-const PILIKINO_POOL: ContractAddress = contract_address_const::<0x0719784b7a7c45247a9405d7f6acf25d5506423ab31f4af22c4c9613ee40b94d>();
+// const PILIKINO_POOL: ContractAddress = contract_address_const::<0x0719784b7a7c45247a9405d7f6acf25d5506423ab31f4af22c4c9613ee40b94d>();
+const PILIKINO_POOL: ContractAddress = contract_address_const::<0x054dfa88049969667a726cb4c0e0f99245719448ec7f505a8d58ec8c81a461a7>();
 const DEMO_DAO: ContractAddress = contract_address_const::<0x057a61a78695df5efab39c679ffdc13462cabc828459e8272eb0fda38091ec90>();
 const DEMO_DEFI: ContractAddress = contract_address_const::<0x076ffb2b056ee0d1a401c3830fb2c7ba0a7e5e1d41783d37afa2e4ae6d8f16af>();
 const PPUSD: ContractAddress = contract_address_const::<0x03fd8e1ce6a31ff8b58f2ba74fbd9e3ea217aef2a92bed955b546ea280e43849>();

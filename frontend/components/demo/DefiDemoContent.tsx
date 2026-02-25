@@ -15,7 +15,7 @@ import type {
   NormalTransactionReporter,
   PrivateTransactionReporter,
 } from "./transaction-log-types";
-import { useDeposit, useExecuteAction, useWithdraw } from "pilikino/hooks";
+import { useDeposit, useExecuteAction } from "pilikino/hooks";
 import { useAccount, useProvider } from "@starknet-react/core";
 import { CallData, hash } from "starknet";
 
@@ -30,6 +30,8 @@ interface RelayStatusWire {
   tx_hash?: string | null;
   error?: string | null;
 }
+
+const ACTION_EXECUTED_SELECTOR = toHex32(hash.getSelectorFromName("ActionExecuted"));
 
 function parseU256(words: Array<string | bigint>, start = 0): bigint {
   const low = BigInt(words[start] ?? 0);
@@ -48,6 +50,52 @@ function toHexTxHash(value: string): `0x${string}` {
     return value as `0x${string}`;
   }
   return `0x${BigInt(value).toString(16)}` as `0x${string}`;
+}
+
+function toHex32(value: string | bigint): `0x${string}` {
+  return `0x${BigInt(value).toString(16).padStart(64, "0")}` as `0x${string}`;
+}
+
+function computeActionIdFromSecret(secret: string): bigint {
+  return BigInt(hash.solidityUint256PackedKeccak256([BigInt(secret)]));
+}
+
+async function resolveProxyAddressFromActionTx(
+  provider: any,
+  txHash: `0x${string}`,
+  poolAddress: string,
+  nullifierHash: string,
+): Promise<`0x${string}` | null> {
+  const receipt = await provider.getTransactionReceipt(txHash);
+  const expectedPool = toHexTxHash(poolAddress).toLowerCase();
+  const nullifier = BigInt(nullifierHash);
+  const mask128 = (1n << 128n) - 1n;
+  const expectedLow = nullifier & mask128;
+  const expectedHigh = nullifier >> 128n;
+
+  for (const event of receipt?.events ?? []) {
+    const fromAddress = event.from_address ?? event.fromAddress;
+    if (!fromAddress || toHexTxHash(String(fromAddress)).toLowerCase() !== expectedPool) {
+      continue;
+    }
+
+    const keys = event.keys ?? [];
+    if (keys.length < 4) {
+      continue;
+    }
+
+    if (toHex32(keys[0]).toLowerCase() !== ACTION_EXECUTED_SELECTOR.toLowerCase()) {
+      continue;
+    }
+
+    if (BigInt(keys[1]) !== expectedLow || BigInt(keys[2]) !== expectedHigh) {
+      continue;
+    }
+
+    return toHexTxHash(String(keys[3]));
+  }
+
+  return null;
 }
 
 export default function DefiDemoContent({
@@ -76,12 +124,6 @@ export default function DefiDemoContent({
     provider,
     account,
     relayer: DEMO_RELAYER_CONFIG,
-  });
-
-  const { withdraw } = useWithdraw({
-    poolAddress: DEMO_CONTRACTS.PilikinoPool,
-    provider,
-    account,
   });
 
   const parsedAmount = useMemo(() => parseAmountInput(amountIn), [amountIn]);
@@ -184,11 +226,9 @@ export default function DefiDemoContent({
     async (params: {
       relayOrTxHash: string;
       secret: string;
-      nullifier: string;
-      commitment: string;
-      amountInPool: string;
+      nullifierHash: string;
     }) => {
-      if (!account || !address) {
+      if (!account || !address || !pilikinoSdk) {
         return;
       }
 
@@ -197,60 +237,70 @@ export default function DefiDemoContent({
       const onchainHash = await resolveRelayTxHash(params.relayOrTxHash);
       await provider.waitForTransaction(onchainHash);
 
-      const noteAmount = BigInt(params.amountInPool);
-      if (noteAmount <= 0n) {
-        toast.info("Private swap confirmed. No remaining note amount to auto-withdraw.");
+      const proxyAddress = await resolveProxyAddressFromActionTx(
+        provider,
+        onchainHash,
+        DEMO_CONTRACTS.PilikinoPool,
+        params.nullifierHash,
+      );
+
+      if (!proxyAddress) {
+        toast.info("Private swap confirmed but proxy address was not found in tx events.");
         return;
       }
 
-      const leaves = await fetchPoolCommitmentLeavesWithRetry(
-        provider,
-        DEMO_CONTRACTS.PilikinoPool,
-        params.commitment,
-      );
+      const proxyBalanceRes = await provider.callContract({
+        contractAddress: DEMO_CONTRACTS.USDTpp,
+        entrypoint: "balance_of",
+        calldata: [proxyAddress],
+      });
+      const proxyBalance = parseU256(proxyBalanceRes);
+      if (proxyBalance <= 0n) {
+        toast.info("Private swap confirmed. Proxy has no claimable USDTpp balance.");
+        return;
+      }
 
-      const withdrawResult = await withdraw({
-        token: DEMO_CONTRACTS.USDTpp,
-        recipient: address,
-        amountToWithdraw: noteAmount,
-        amountInPool: noteAmount,
-        secret: params.secret,
-        nullifier: params.nullifier,
-        leaves,
-        account,
+      const secretWord = toU256(BigInt(params.secret));
+      const withdrawTx = await account.execute({
+        contractAddress: proxyAddress,
+        entrypoint: "withdraw",
+        calldata: [
+          DEMO_CONTRACTS.USDTpp,
+          address,
+          secretWord.low.toString(),
+          secretWord.high.toString(),
+        ],
       });
 
+      await provider.waitForTransaction(withdrawTx.transaction_hash);
+
       onPrivateTransaction?.({
-        hash: withdrawResult.txHash,
+        hash: toHexTxHash(withdrawTx.transaction_hash),
         source: "defi",
-        methodHint: "withdraw(USDTpp)",
-        parametersHint: `recipient=${address}, amount=${noteAmount.toString()}`,
+        methodHint: "proxy.withdraw(USDTpp)",
+        parametersHint: `recipient=${address}, amount=${proxyBalance.toString()}`,
         privacyLevel: "Private",
         metadata: {
           initiator: address,
-          gasPayer: withdrawResult.relayRequestId ? "relayer" : address,
-          method: "withdraw",
-          parameters: `token=${DEMO_CONTRACTS.USDTpp}, amount=${noteAmount.toString()}`,
-          status: withdrawResult.relayRequestId ? "pending" : "success",
-          noteCommitment: withdrawResult.proof.newCommitment,
-          relayRequestId: withdrawResult.relayRequestId,
-          relayQueueLength: withdrawResult.relayQueueLength,
-          relayGasEstimate: withdrawResult.relayGasEstimate,
-          relayMinRequiredFeeWei: withdrawResult.relayMinRequiredFeeWei,
+          gasPayer: address,
+          method: "proxy.withdraw",
+          parameters: `token=${DEMO_CONTRACTS.USDTpp}, amount=${proxyBalance.toString()}`,
+          status: "success",
+          proxyAddress,
         },
       });
 
-      toast.success("USDTpp auto-withdraw submitted.");
+      toast.success("USDTpp claimed from private proxy.");
       await refreshBalances();
     },
     [
       account,
       address,
       onPrivateTransaction,
+      pilikinoSdk,
       provider,
       refreshBalances,
       resolveRelayTxHash,
-      withdraw,
     ],
   );
 
@@ -375,7 +425,7 @@ export default function DefiDemoContent({
           target: DEMO_CONTRACTS.DemoDefi,
           selector: hash.getSelectorFromName("swap_simple"),
           actionCalldata: [BigInt(amountU256.low), BigInt(amountU256.high)],
-          actionId: BigInt(Date.now()),
+          actionId: computeActionIdFromSecret(depositResult.secret),
           amountInPool: parsedAmount,
           secret: depositResult.secret,
           nullifier: depositResult.nullifier,
@@ -400,15 +450,14 @@ export default function DefiDemoContent({
             relayQueueLength: executeResult.relayQueueLength,
             relayGasEstimate: executeResult.relayGasEstimate,
             relayMinRequiredFeeWei: executeResult.relayMinRequiredFeeWei,
+            proxyAddress: (executeResult as { proxyAddress?: string }).proxyAddress,
           },
         });
 
         void autoWithdrawSwapOutput({
           relayOrTxHash: executeResult.txHash,
           secret: depositResult.secret,
-          nullifier: executeResult.proof.newNullifier,
-          commitment: executeResult.proof.newCommitment,
-          amountInPool: executeResult.proof.amountLeft,
+          nullifierHash: executeResult.proof.nullifierHash,
         }).catch((error) => {
           const message =
             error instanceof Error

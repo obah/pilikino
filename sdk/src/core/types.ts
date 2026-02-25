@@ -69,12 +69,24 @@ export interface ExecuteActionParams {
   target: string;
   selector: string | bigint;
   actionCalldata: BigNumberish[];
-  actionId: BigNumberish;
+  actionId?: BigNumberish;
   amountInPool: BigNumberish;
   nullifier: BigNumberish;
   secret: BigNumberish;
   leaves: BigNumberish[];
   relayMetadata?: Record<string, unknown>;
+}
+
+export interface WithdrawProxyParams {
+  proxyAddress: string;
+  token: string;
+  recipient: string;
+  secret: BigNumberish;
+}
+
+export interface WithdrawProxyResult {
+  txHash: string;
+  withdrawnAmount?: string;
 }
 
 export interface RelayQueuedResponse {
@@ -104,6 +116,8 @@ export interface WithdrawResult {
 export interface ExecuteActionResult {
   txHash: string;
   success?: boolean;
+  actionId: string;
+  proxyAddress?: string;
   relayRequestId?: string;
   relayQueueLength?: number;
   relayGasEstimate?: string;

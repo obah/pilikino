@@ -15,6 +15,8 @@ export type {
   RelayerTransportConfig,
   RelayQueuedResponse,
   RelayStatusResponse,
+  WithdrawProxyParams,
+  WithdrawProxyResult,
   WithdrawParams,
   WithdrawResult,
 } from "./types";

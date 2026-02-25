@@ -70,6 +70,10 @@ function toHexTxHash(value: string): `0x${string}` {
   return `0x${BigInt(value).toString(16)}` as `0x${string}`;
 }
 
+function computeActionIdFromSecret(secret: string): bigint {
+  return BigInt(hash.solidityUint256PackedKeccak256([BigInt(secret)]));
+}
+
 export default function DaoDemoContent({
   isIncognito,
   onNormalTransaction,
@@ -300,11 +304,11 @@ function ProposalCard({
 
         const executeResult = await executeAction({
           token: DEMO_CONTRACTS.ppUSD,
-          amountToWithdraw: 0n,
+          amountToWithdraw: PRIVATE_VOTE_AMOUNT,
           target: DEMO_CONTRACTS.DemoDao,
           selector: hash.getSelectorFromName("vote"),
           actionCalldata: [BigInt(id), BigInt(support)],
-          actionId: BigInt(Date.now()),
+          actionId: computeActionIdFromSecret(depositResult.secret),
           amountInPool: PRIVATE_VOTE_AMOUNT,
           secret: depositResult.secret,
           nullifier: depositResult.nullifier,
