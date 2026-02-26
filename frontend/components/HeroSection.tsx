@@ -95,10 +95,8 @@ export const HeroSection = () => {
           <h1 className="text-primary text-[50px] font-bold tracking-widest [text-shadow:0_0_8px_rgba(34,197,94,0.75),0_0_24px_rgba(16,185,129,0.65),0_0_44px_rgba(20,184,166,0.4)] md:text-[80px]">
             PILIKINO
           </h1>
-          <div className="mx-auto max-w-4xl text-xl font-semibold text-white md:text-5xl">
-            <p className="inline opacity-90">
-              The best way to add privacy to your{" "}
-            </p>
+          <div className="mx-auto max-w-3xl space-y-6 text-xl font-semibold text-white md:text-5xl">
+            <p className="opacity-90">The best way to add privacy to your </p>
             <AnimatedText
               texts={rotatingTexts}
               colors={colors}
